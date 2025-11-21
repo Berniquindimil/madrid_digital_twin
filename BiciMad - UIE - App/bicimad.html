@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiciMAD - Mapa en Tiempo Real</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="bicimad-styles.css">
+</head>
+<body>
+    <!-- NAVBAR SUPERIOR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+          <img width="26%" height="auto" src="https://uie.edu/wp-content/uploads/2025/09/logotipo_completo_positivo_web.svg" class="attachment-full size-full wp-image-21181" alt="">
+            <div class="navbar-title">
+                <span class="main"><i class="fas fa-bicycle"></i> Bicis Madrid</span>
+                <span class="sub">UIE - Gestión de Operaciones Inteligentes | Prof: Roi Ferreiroa García
+        </div>
+        <button class="navbar-hamburger" id="navbar-toggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        <ul class="navbar-menu" id="navbar-menu">
+            <li><a href="#" class="active" id="nav-map"><i class="fas fa-map"></i> Mapa</a></li>
+            <!--<li><a href="#" id="nav-stats"><i class="fas fa-chart-line"></i> Estadísticas</a></li>
+            <li><button id="nav-export"><i class="fas fa-download"></i> Exportar</button></li>
+            <li><button id="nav-settings"><i class="fas fa-cog"></i></button></li>-->
+        </ul>
+    </nav>
+
+    <!-- Loading spinner -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Cargando estaciones BiciMAD...</p>
+    </div>
+
+    <!-- Mapa -->
+    <div id="map"></div>
+
+    <!-- Panel de información -->
+    <div class="info-panel">
+        <h2>📊 BiciMAD en Tiempo Real</h2>
+        <div class="stat">
+            <span><i class="fas fa-building"></i> Estaciones activas:</span>
+            <span id="active-stations">0</span>
+        </div>
+        <div class="stat">
+            <span><i class="fas fa-bicycle"></i> Bicis disponibles:</span>
+            <span id="available-bikes">0</span>
+        </div>
+        <div class="stat">
+            <span><i class="fas fa-parking"></i> Bases libres:</span>
+            <span id="free-bases">0</span>
+        </div>
+        <div class="stat">
+            <span><i class="fas fa-chart-pie"></i> Ocupación media:</span>
+            <span id="avg-occupancy">0%</span>
+        </div>
+        <div class="update-time">
+            <i class="fas fa-sync-alt"></i> Última actualización: <span id="last-update">--:--</span>
+        </div>
+    </div>
+
+    <!-- Controles de filtro -->
+    <div class="filter-controls">
+        <h3><i class="fas fa-sliders-h"></i> Filtros</h3>
+        <label>
+            <input type="checkbox" id="filter-bikes" checked>
+            <i class="fas fa-bicycle"></i> Con bicis disponibles
+        </label>
+        <label>
+            <input type="checkbox" id="filter-bases" checked>
+            <i class="fas fa-parking"></i> Con bases libres
+        </label>
+        <label>
+            <input type="checkbox" id="filter-inactive" checked>
+            <i class="fas fa-ban"></i> Estaciones inactivas
+        </label>
+    </div>
+
+    <!-- Leyenda -->
+    <div class="legend">
+        <h4><i class="fas fa-info-circle"></i> Disponibilidad</h4>
+        <div class="legend-item">
+            <div class="legend-color occupancy-high"></div>
+            <span>Alta (&gt;50%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color occupancy-medium"></div>
+            <span>Media (20-50%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color occupancy-low"></div>
+            <span>Baja (&lt;20%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color station-inactive"></div>
+            <span>Inactiva</span>
+        </div>
+    </div>
+
+    <!-- Panel de estadísticas -->
+    <div class="stats-panel">
+        <h3><i class="fas fa-chart-bar"></i> Estadísticas</h3>
+        <div id="stats-content">
+            <p><i class="fas fa-building"></i> <strong>Total estaciones:</strong> <span id="stats-total">0</span></p>
+            <p><i class="fas fa-bicycle"></i> <strong>Total bicis:</strong> <span id="stats-bikes">0</span></p>
+            <p><i class="fas fa-parking"></i> <strong>Total bases:</strong> <span id="stats-bases">0</span></p>
+            <p><i class="fas fa-percentage"></i> <strong>Uso del sistema:</strong> <span id="stats-usage">0%</span></p>
+        </div>
+    </div>
+
+    <!-- Control buttons -->
+    <div class="control-buttons">
+        <button id="toggle-dark"><i class="fas fa-moon"></i> Modo Nocturno</button>
+        <button id="export-csv"><i class="fas fa-download"></i> Exportar CSV</button>
+        <button id="reset-view"><i class="fas fa-crosshairs"></i> Resetear Vista</button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="bicimad-script.js"></script>
+</body>
+</html>

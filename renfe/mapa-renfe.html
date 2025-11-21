@@ -1,0 +1,2658 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Renfe – Mapa Inteligente en Tiempo Real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" />
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  
+  <style>
+    * { box-sizing: border-box; }
+    html, body, #map { 
+      height: 100%; 
+      margin: 0; 
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    /* NAVBAR SUPERIOR */
+    .navbar {
+    background: linear-gradient(119deg, #ffffff 0%, #000000 100%);
+    color: white;
+    padding: 0 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    display: flex
+;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+    position: relative;
+    }
+    
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .navbar-logo {
+      height: 45px;
+      width: auto;
+      filter: brightness(0) invert(1);
+    }
+    
+    .navbar-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0;
+    display: flex
+;
+    flex-direction: column;
+    gap: 2px;
+    color: black !important;
+    }
+    
+.navbar-title .main {
+    font-size: 26px;
+    width: 294px;
+}
+    
+.navbar-title .sub {
+    font-size: 16px;
+    font-weight: normal;
+    opacity: 0.9;
+}
+    
+    .navbar-menu {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .navbar-menu li {
+      margin: 0;
+    }
+    
+    .navbar-menu a, .navbar-menu button {
+      color: white;
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .navbar-menu a:hover, .navbar-menu button:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    .navbar-menu a.active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* HAMBURGER MENU (Mobile) */
+    .navbar-hamburger {
+      display: none;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 10px;
+    }
+    
+    @media (max-width: 768px) {
+      .navbar-menu {
+        position: absolute;
+        top: 70px;
+        right: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        flex-direction: column;
+        width: 250px;
+        padding: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        display: none;
+      }
+      
+      .navbar-menu.active {
+        display: flex;
+      }
+      
+      .navbar-hamburger {
+        display: block;
+      }
+      
+      .navbar-title .sub {
+        display: none;
+      }
+    }
+    
+    /* MAP CONTAINER */
+    #map { 
+      flex: 1;
+      width: 100%;
+    }
+    
+    /* INFO BOX */
+    .info-box {
+      position: absolute;
+      top: 80px;
+      right: 10px;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      min-width: 220px;
+    }
+    .info-box h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      color: #333;
+      border-bottom: 2px solid #3388ff;
+      padding-bottom: 5px;
+    }
+    .info-box p {
+      margin: 5px 0;
+      font-size: 12px;
+      color: #555;
+    }
+    .info-box strong {
+      color: #000;
+    }
+    
+    /* FILTER PANEL */
+    .filter-panel {
+      position: absolute;
+      top: 250px;
+      right: 10px;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      min-width: 220px;
+    }
+    .filter-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #333;
+      border-bottom: 2px solid #ff9933;
+      padding-bottom: 5px;
+    }
+    .filter-panel label {
+      display: block;
+      font-size: 12px;
+      margin: 8px 0;
+      cursor: pointer;
+      color: #555;
+    }
+    .filter-panel input[type="checkbox"] {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+    .filter-panel button {
+      margin-top: 12px;
+      padding: 8px 12px;
+      width: 100%;
+      cursor: pointer;
+      background: #3388ff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .filter-panel button:hover {
+      background: #2266dd;
+    }
+    
+    /* STATS PANEL */
+    .stats-panel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 300px;
+    }
+    .stats-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #333;
+      border-bottom: 2px solid #33cc33;
+      padding-bottom: 5px;
+    }
+    .stats-panel p {
+      margin: 4px 0;
+      font-size: 11px;
+      color: #555;
+    }
+    
+    /* STATION POPUP */
+    .station-popup {
+      font-family: Arial, sans-serif;
+      min-width: 200px;
+    }
+    .station-popup h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+      font-size: 16px;
+      font-weight: bold;
+      border-bottom: 2px solid #4A90E2;
+      padding-bottom: 5px;
+    }
+    .station-popup p {
+      margin: 5px 0;
+      font-size: 13px;
+      color: #666;
+    }
+    .station-popup strong {
+      color: #333;
+    }
+    
+    /* ALERTS PANEL */
+    .alerts-panel {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 380px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .alerts-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #333;
+      border-bottom: 2px solid #ff9800;
+      padding-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .alerts-badge {
+      background: #ff9800;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-left: 8px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .alert-item {
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 6px;
+      font-size: 11px;
+      border-left: 4px solid #ff9800;
+      background: #fff3e0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .alert-item:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateX(-4px);
+      background: #ffe0b2;
+    }
+    .alert-item.severe {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+    .alert-item.severe:hover {
+      background: #ffcdd2;
+    }
+    .alert-item.warning {
+      border-left-color: #ff9800;
+      background: #fff3e0;
+    }
+    .alert-item.warning:hover {
+      background: #ffe0b2;
+    }
+    .alert-item.info {
+      border-left-color: #2196f3;
+      background: #e3f2fd;
+    }
+    .alert-item.info:hover {
+      background: #bbdefb;
+    }
+    .alert-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #333;
+      font-size: 12px;
+    }
+    .alert-item .alert-cause {
+      display: inline-block;
+      background: rgba(0,0,0,0.15);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+    .alert-item .alert-description {
+      margin-top: 8px;
+      color: #555;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .alert-item .alert-affected {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #666;
+      font-weight: bold;
+      padding-top: 6px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+    .alert-item::after {
+      content: '→';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+      font-size: 16px;
+    }
+    .alert-item:hover::after {
+      opacity: 0.5;
+    }
+    
+    /* SEARCH PANEL - MOVED TO NAVBAR */
+    
+    /* CONTROL BUTTONS */
+    .control-buttons {
+      position: absolute;
+      top: 80px;
+      left: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .control-buttons button {
+      padding: 10px 16px;
+      cursor: pointer;
+      background: white;
+      border: 2px solid #3388ff;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #3388ff;
+      transition: all 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .control-buttons button:hover {
+      background: #3388ff;
+      color: white;
+    }
+    .control-buttons button.active {
+      background: #3388ff;
+      color: white;
+    }
+    
+ /* PANEL COMPLETO DE ALERTAS */
+    #alerts-panel-full {
+      position: fixed;
+      top: 70px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #f5f5f5;
+      z-index: 9999;
+      overflow-y: auto;
+    }
+    
+    .alerts-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    /* HEADER */
+    .alerts-header {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .alerts-header-left h2 {
+      margin: 0;
+      font-size: 24px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .alerts-subtitle {
+      display: block;
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .alerts-header-right {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .btn-primary, .btn-secondary, .btn-reset {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+    
+    .btn-secondary:hover {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-reset {
+      background: #f44336;
+      color: white;
+    }
+    
+    .btn-reset:hover {
+      background: #d32f2f;
+    }
+    
+    /* FILTROS */
+    .alerts-filters {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .filter-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .filter-group input,
+    .filter-group select {
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .filter-group input:focus,
+    .filter-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* ESTADÍSTICAS */
+    .alerts-stats-bar {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+    
+    .stat-item:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    
+    .stat-item.severe {
+      background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    }
+    
+    .stat-item.warning {
+      background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    }
+    
+    .stat-item.info {
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    }
+    
+    .stat-item.total {
+      background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    }
+    
+    .stat-item.affected {
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+    }
+    
+    .stat-item i {
+      font-size: 32px;
+      opacity: 0.8;
+    }
+    
+    .stat-item.severe i { color: #f44336; }
+    .stat-item.warning i { color: #ff9800; }
+    .stat-item.info i { color: #2196f3; }
+    .stat-item.total i { color: #9c27b0; }
+    .stat-item.affected i { color: #009688; }
+    
+    .stat-number {
+      display: block;
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
+    }
+    
+    .stat-label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    /* LISTA DE ALERTAS */
+    .alerts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .alert-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    
+    .alert-card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
+    }
+    
+    .alert-card-header {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-left: 5px solid;
+    }
+    
+    .alert-card.severe .alert-card-header {
+      border-left-color: #f44336;
+      background: linear-gradient(90deg, #ffebee 0%, white 100%);
+    }
+    
+    .alert-card.warning .alert-card-header {
+      border-left-color: #ff9800;
+      background: linear-gradient(90deg, #fff3e0 0%, white 100%);
+    }
+    
+    .alert-card.info .alert-card-header {
+      border-left-color: #2196f3;
+      background: linear-gradient(90deg, #e3f2fd 0%, white 100%);
+    }
+    
+    .alert-card-left {
+      flex: 1;
+    }
+    
+    .alert-card-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin: 0 0 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .severity-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .severity-badge.severe {
+      background: #f44336;
+      color: white;
+    }
+    
+    .severity-badge.warning {
+      background: #ff9800;
+      color: white;
+    }
+    
+    .severity-badge.info {
+      background: #2196f3;
+      color: white;
+    }
+    
+    .alert-card-meta {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      color: #666;
+      margin-top: 10px;
+    }
+    
+    .alert-card-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .alert-card-body {
+      padding: 0 20px 20px 20px;
+      display: none;
+    }
+    
+    .alert-card.expanded .alert-card-body {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .alert-card-description {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      line-height: 1.6;
+      color: #555;
+    }
+    
+    .alert-card-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+    
+    .detail-item {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 6px;
+    }
+    
+    .detail-item strong {
+      display: block;
+      color: #333;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    
+    .detail-item ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .detail-item li {
+      padding: 4px 0;
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .line-badge {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      margin: 2px;
+    }
+    
+    .expand-icon {
+      transition: transform 0.3s;
+    }
+    
+    .alert-card.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+    
+    .no-alerts-message {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+    
+    .no-alerts-message i {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- NAVBAR SUPERIOR -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+<img width="auto" height="auto" src="https://uie.edu/wp-content/uploads/2025/09/logotipo_completo_positivo_web.svg" class="attachment-full size-full wp-image-21181" alt="">
+    
+    <div class="navbar-title">
+        <span class="main"><i class="fas fa-train"></i> Renfe Monitor</span>
+        <span class="sub">UIE - Gestión de Operaciones Inteligente</span>
+      </div>
+    </div>
+    
+    <button class="navbar-hamburger" id="navbar-toggle">
+      <i class="fas fa-bars"></i>
+    </button>
+    
+    <ul class="navbar-menu" id="navbar-menu">
+      <li><a href="#" class="active" id="nav-map"><i class="fas fa-map"></i> Mapa</a></li>
+      <li><a href="#" id="nav-stats"><i class="fas fa-chart-line"></i> Estadísticas</a></li>
+      <li><a href="#" id="nav-alerts"><i class="fas fa-bell"></i> Alertas</a></li>
+      <li><button id="nav-export"><i class="fas fa-download"></i> Exportar</button></li>
+      <li><button id="nav-settings"><i class="fas fa-cog"></i></button></li>
+    </ul>
+  </nav>
+
+    <!-- PANEL DE AVISOS (OCULTO INICIALMENTE) -->
+  <div id="alerts-panel-full" style="display: none;">
+    <div class="alerts-container">
+      <!-- HEADER DEL PANEL -->
+      <div class="alerts-header">
+        <div class="alerts-header-left">
+          <h2><i class="fas fa-bell"></i> Panel de Avisos e Incidencias</h2>
+          <span class="alerts-subtitle">Gestión y seguimiento de alertas en tiempo real</span>
+        </div>
+        <div class="alerts-header-right">
+          <button class="btn-secondary" id="export-alerts-csv">
+            <i class="fas fa-file-csv"></i> Exportar CSV
+          </button>
+          <button class="btn-secondary" id="export-alerts-excel">
+            <i class="fas fa-file-excel"></i> Exportar Excel
+          </button>
+          <button class="btn-primary" id="close-alerts-panel">
+            <i class="fas fa-times"></i> Cerrar
+          </button>
+        </div>
+      </div>
+
+      <!-- FILTROS Y BÚSQUEDA -->
+      <div class="alerts-filters">
+        <div class="filter-group">
+          <label><i class="fas fa-search"></i> Búsqueda</label>
+          <input type="text" id="alert-search" placeholder="Buscar en alertas..." />
+        </div>
+        
+        <div class="filter-group">
+          <label><i class="fas fa-exclamation-circle"></i> Severidad</label>
+          <select id="filter-severity">
+            <option value="">Todas</option>
+            <option value="SEVERE">Graves</option>
+            <option value="WARNING">Avisos</option>
+            <option value="INFO">Información</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label><i class="fas fa-wrench"></i> Causa</label>
+          <select id="filter-cause">
+            <option value="">Todas</option>
+            <option value="ACCIDENT">Accidente</option>
+            <option value="CONSTRUCTION">Obras</option>
+            <option value="MAINTENANCE">Mantenimiento</option>
+            <option value="TECHNICAL_PROBLEM">Problema Técnico</option>
+            <option value="WEATHER">Meteorología</option>
+            <option value="STRIKE">Huelga</option>
+            <option value="OTHER">Otros</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label><i class="fas fa-train"></i> Línea</label>
+          <select id="filter-line">
+            <option value="">Todas las líneas</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label><i class="fas fa-calendar"></i> Fecha</label>
+          <select id="filter-date">
+            <option value="">Todas las fechas</option>
+            <option value="today">Hoy</option>
+            <option value="yesterday">Ayer</option>
+            <option value="week">Última semana</option>
+            <option value="month">Último mes</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label><i class="fas fa-sort"></i> Ordenar por</label>
+          <select id="sort-alerts">
+            <option value="date-desc">Fecha (más reciente)</option>
+            <option value="date-asc">Fecha (más antigua)</option>
+            <option value="severity">Severidad</option>
+            <option value="impact">Impacto (más afectados)</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <button class="btn-reset" id="reset-filters">
+            <i class="fas fa-undo"></i> Resetear Filtros
+          </button>
+        </div>
+      </div>
+
+      <!-- ESTADÍSTICAS RÁPIDAS -->
+      <div class="alerts-stats-bar">
+        <div class="stat-item severe">
+          <i class="fas fa-times-circle"></i>
+          <div>
+            <span class="stat-number" id="stat-severe">0</span>
+            <span class="stat-label">Graves</span>
+          </div>
+        </div>
+        <div class="stat-item warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <span class="stat-number" id="stat-warning">0</span>
+            <span class="stat-label">Avisos</span>
+          </div>
+        </div>
+        <div class="stat-item info">
+          <i class="fas fa-info-circle"></i>
+          <div>
+            <span class="stat-number" id="stat-info">0</span>
+            <span class="stat-label">Info</span>
+          </div>
+        </div>
+        <div class="stat-item total">
+          <i class="fas fa-list"></i>
+          <div>
+            <span class="stat-number" id="stat-total">0</span>
+            <span class="stat-label">Total Alertas</span>
+          </div>
+        </div>
+        <div class="stat-item affected">
+          <i class="fas fa-train"></i>
+          <div>
+            <span class="stat-number" id="stat-affected-routes">0</span>
+            <span class="stat-label">Rutas Afectadas</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE ALERTAS -->
+      <div class="alerts-list" id="alerts-list-container">
+        <!-- Las alertas se insertarán aquí dinámicamente -->
+      </div>
+    </div>
+  </div>
+  <div id="map"></div>
+  
+  <div class="info-box">
+    <h3><i class="fas fa-train"></i> Renfe en Tiempo Real</h3>
+    <p><i class="fas fa-train"></i> Trenes activos: <strong id="train-count">0</strong></p>
+    <p><i class="fas fa-building"></i> Estaciones: <strong id="station-count">0</strong></p>
+    <p><i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> Alertas: <strong id="alerts-count" style="color: #ff9800;">0</strong></p>
+    <p><i class="fas fa-sync-alt"></i> Actualización: <strong id="last-update">--:--:--</strong></p>
+    <p><i class="fas fa-search-plus"></i> Zoom: <strong id="zoom-level">6</strong></p>
+  </div>
+  
+  <div class="filter-panel">
+    <h3><i class="fas fa-sliders-h"></i> Filtros</h3>
+    <label><input type="checkbox" id="filter-cercanias" checked> <i class="fas fa-circle" style="color: #3388ff;"></i> Cercanías (C/R)</label>
+    <label><input type="checkbox" id="filter-media" checked> <i class="fas fa-circle" style="color: #ff9933;"></i> Media Dist. (MD/LD)</label>
+    <label><input type="checkbox" id="filter-ave" checked> <i class="fas fa-circle" style="color: #ff3333;"></i> AVE (AV)</label>
+    <label><input type="checkbox" id="toggle-stations" checked> <i class="fas fa-building"></i> Mostrar Estaciones</label>
+    <label><input type="checkbox" id="toggle-trajectories"> <i class="fas fa-route"></i> Mostrar Trayectorias</label>
+    <label><input type="checkbox" id="toggle-heatmap"> <i class="fas fa-fire"></i> Mapa de Calor</label>
+    <button id="reset-view"><i class="fas fa-crosshairs"></i> Resetear Vista</button>
+  </div>
+  
+  <div class="stats-panel">
+    <h3><i class="fas fa-chart-bar"></i> Estadísticas</h3>
+    <div id="stats-content">Cargando...</div>
+  </div>
+  
+  <div class="alerts-panel">
+    <h3><i class="fas fa-bell"></i> Alertas Activas</h3>
+    <div id="alerts-content">
+      <p style="text-align: center; color: #999;">Sin alertas</p>
+    </div>
+  </div>
+  
+  <div class="search-panel">
+    <input type="text" id="train-search" placeholder="Buscar tren o estación..." />
+    <button id="search-btn"><i class="fas fa-search"></i> Buscar</button>
+  </div>
+  
+  <div class="control-buttons">
+    <button id="toggle-dark"><i class="fas fa-moon"></i> Modo Nocturno</button>
+    <button id="export-csv"><i class="fas fa-download"></i> Exportar CSV</button>
+    <button id="toggle-cluster" class="active"><i class="fas fa-layer-group"></i> Cluster Activo</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script>
+    // ============================================
+    // CONFIGURACIÓN
+    // ============================================
+    const WEBHOOK_URL = "http://localhost:5678/webhook/mapa-renfe";
+
+    // ============================================
+    // INICIALIZACIÓN DEL MAPA
+    // ============================================
+    const map = L.map('map').setView([40.4168, -3.7038], 6);
+    
+    const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18
+    }).addTo(map);
+    
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap, &copy; CartoDB',
+      maxZoom: 18
+    });
+    
+    let darkMode = false;
+
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      chunkedLoading: true
+    });
+    clusterGroup.addTo(map);
+    let clusterEnabled = true;
+
+    const stationsLayer = L.layerGroup().addTo(map);
+    let stationsVisible = true;
+
+    const markers = new Map();
+    const stationMarkers = new Map();
+    const trajectories = new Map();
+    const trajectoryLines = new Map();
+    let heatmapLayer = null;
+    let currentTrains = [];
+    let currentStations = [];
+    let currentAlerts = [];
+    
+    const filters = {
+      cercanias: true,
+      media: true,
+      ave: true,
+      stations: true,
+      trajectories: false,
+      heatmap: false
+    };
+
+    const trainIcons = {
+      cercanias: L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      }),
+      media: L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      }),
+      ave: L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      }),
+      default: L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      })
+    };
+
+    const stationIcons = {
+      cercanias: L.divIcon({
+        className: 'custom-station-icon',
+        html: '<div style="background-color:#4A90E2;width:10px;height:10px;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>',
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+      }),
+      feve: L.divIcon({
+        className: 'custom-station-icon',
+        html: '<div style="background-color:#FF9800;width:10px;height:10px;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>',
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+      }),
+      conventional: L.divIcon({
+        className: 'custom-station-icon',
+        html: '<div style="background-color:#757575;width:8px;height:8px;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>',
+        iconSize: [8, 8],
+        iconAnchor: [4, 4]
+      })
+    };
+
+    function getTrainIcon(train) {
+      const line = train.line;
+      
+      if (!line) return trainIcons.default;
+      if (line.startsWith('C') || line.startsWith('R') || line.startsWith('T')) return trainIcons.cercanias;
+      if (line === 'MD' || line === 'LD') return trainIcons.media;
+      if (line === 'AV') return trainIcons.ave;
+      return trainIcons.cercanias;
+    }
+    
+    function getTrajectoryColor(line) {
+      if (!line) return '#888888';
+      if (line.startsWith('C') || line.startsWith('R') || line.startsWith('T')) return '#3388ff';
+      if (line === 'AV') return '#ff3333';
+      if (line === 'MD' || line === 'LD') return '#ff9933';
+      return '#3388ff';
+    }
+
+    function shouldShowTrain(line) {
+      if (!line) return filters.cercanias;
+      if (line.startsWith('C') || line.startsWith('R') || line.startsWith('T')) return filters.cercanias;
+      if (line === 'MD' || line === 'LD') return filters.media;
+      if (line === 'AV') return filters.ave;
+      return filters.cercanias;
+    }
+
+    function updateTrajectory(train) {
+      if (!filters.trajectories) return;
+      
+      if (!trajectories.has(train.id)) {
+        trajectories.set(train.id, []);
+      }
+      
+      const path = trajectories.get(train.id);
+      const newPoint = [train.lat, train.lon];
+      
+      if (path.length > 0) {
+        const lastPoint = path[path.length - 1];
+        if (lastPoint[0] === newPoint[0] && lastPoint[1] === newPoint[1]) {
+          return;
+        }
+      }
+      
+      path.push(newPoint);
+      
+      if (path.length > 30) {
+        path.shift();
+      }
+      
+      if (path.length > 1) {
+        const lineId = train.id;
+        
+        if (trajectoryLines.has(lineId)) {
+          trajectoryLines.get(lineId).setLatLngs(path);
+        } else {
+          const polyline = L.polyline(path, {
+            color: getTrajectoryColor(train.line),
+            weight: 2,
+            opacity: 0.6,
+            smoothFactor: 1
+          }).addTo(map);
+          trajectoryLines.set(lineId, polyline);
+        }
+      }
+    }
+    
+    function clearTrajectories() {
+      trajectoryLines.forEach(line => map.removeLayer(line));
+      trajectoryLines.clear();
+      trajectories.clear();
+    }
+
+   function updateMarker(train) {
+  const key = train.id;
+  
+  const statusBadges = {
+    'STOPPED_AT': train.isStationary ? '<i class="fas fa-building"></i> En Estación' : '<i class="fas fa-hand-paper"></i> Parado',
+    'IN_TRANSIT_TO': '<i class="fas fa-train"></i> En tránsito',
+    'INCOMING_AT': '<i class="fas fa-clock"></i> Llegando'
+  };
+  const statusText = statusBadges[train.currentStatus] || train.currentStatus;
+  
+  let delayBadge = '';
+  const delayMin = train.delayMinutes || 0;
+  
+  if (train.isCanceled) {
+    delayBadge = '<span style="background:#ff0000;color:white;padding:3px 8px;border-radius:5px;font-weight:bold;"><i class="fas fa-ban"></i> CANCELADO</span>';
+  } else if (delayMin > 10) {
+    delayBadge = `<span style="background:#ff6600;color:white;padding:3px 8px;border-radius:5px;font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> +${delayMin} min</span>`;
+  } else if (delayMin > 5) {
+    delayBadge = `<span style="background:#ffaa00;color:white;padding:3px 8px;border-radius:5px;font-weight:bold;"><i class="fas fa-clock"></i> +${delayMin} min</span>`;
+  } else if (delayMin > 0) {
+    delayBadge = `<span style="background:#ffcc00;color:#333;padding:3px 8px;border-radius:5px;font-weight:bold;"><i class="fas fa-hourglass-half"></i> +${delayMin} min</span>`;
+  } else {
+    delayBadge = '<span style="background:#4caf50;color:white;padding:3px 8px;border-radius:5px;font-weight:bold;"><i class="fas fa-check-circle"></i> A tiempo</span>';
+  }
+  
+  let gpsIndicator = '';
+  if (train.hasGPS === false) {
+    gpsIndicator = '<p style="margin: 5px 0; font-size: 10px; color: #ff9800; background: #fff3e0; padding: 4px 8px; border-radius: 4px;"><i class="fas fa-info-circle"></i> <strong>Posición estimada</strong> - Sin señal GPS en tiempo real</p>';
+  }
+  
+  // NUEVO: Obtener recorrido del tren
+  let routeHTML = '';
+  if (train.tripId) {
+    const tripStops = getTripRoute(train.tripId);
+    if (tripStops && tripStops.length > 0) {
+      routeHTML = '<hr style="margin: 8px 0; border: none; border-top: 1px solid #ddd;">';
+      routeHTML += '<p style="margin: 5px 0; font-weight: bold; color: #333;"><i class="fas fa-route"></i> Recorrido del tren:</p>';
+      routeHTML += '<button onclick="showFullRoute(\'' + train.tripId + '\')" style="width: 100%; padding: 8px; background: #3388ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;"><i class="fas fa-map-marked-alt"></i> Ver Recorrido Completo</button>';
+    }
+  }
+  
+  let alertsHTML = '';
+  if (train.hasAlerts && train.alerts && train.alerts.length > 0) {
+    alertsHTML = '<hr style="margin: 8px 0; border: none; border-top: 1px solid #ddd;">';
+    alertsHTML += '<p style="margin: 5px 0; color: #ff9800; font-weight: bold;"><i class="fas fa-exclamation-triangle"></i> Alertas activas:</p>';
+    
+    train.alerts.slice(0, 3).forEach(alert => {
+      const icon = alert.severity === 'SEVERE' ? '<i class="fas fa-times-circle"></i>' : alert.severity === 'WARNING' ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-info-circle"></i>';
+      alertsHTML += `
+        <div style="margin: 5px 0; padding: 5px; background: rgba(255,152,0,0.1); border-radius: 3px;">
+          <p style="margin: 0; font-size: 11px; font-weight: bold;">${icon} ${alert.header}</p>
+          ${alert.causeText ? `<p style="margin: 2px 0 0 0; font-size: 10px; color: #666;">${alert.causeText}</p>` : ''}
+        </div>
+      `;
+    });
+    
+    if (train.alerts.length > 3) {
+      alertsHTML += `<p style="margin: 3px 0; font-size: 10px; color: #999;">+ ${train.alerts.length - 3} alertas más</p>`;
+    }
+  }
+  
+  const popupHTML = `
+    <div style="font-family: Arial; font-size: 12px; min-width: 260px;">
+      <strong style="font-size: 15px; color: #333;">
+        ${train.hasGPS === false ? '<i class="fas fa-map-marker-alt"></i>' : train.isStationary ? '<i class="fas fa-building"></i>' : train.isInterpolated ? '<i class="fas fa-location-arrow"></i>' : '<i class="fas fa-train"></i>'} 
+        Tren ${train.id}
+      </strong>
+      ${delayBadge}
+      ${gpsIndicator}
+      <hr style="margin: 8px 0; border: none; border-top: 1px solid #ddd;">
+      <p style="margin: 3px 0;"><strong><i class="fas fa-route"></i> Línea:</strong> ${train.line || 'N/A'}</p>
+      ${train.isStationary ? `
+        <p style="margin: 3px 0;"><strong><i class="fas fa-building"></i> Estación:</strong> ${train.stationName}</p>
+        ${train.estimatedDeparture ? `<p style="margin: 3px 0;"><strong><i class="fas fa-clock"></i> Salida estimada:</strong> ${new Date(train.estimatedDeparture).toLocaleTimeString('es-ES')}</p>` : ''}
+      ` : train.isInterpolated ? `
+        <p style="margin: 3px 0; background: #e3f2fd; padding: 5px; border-radius: 4px;">
+          <strong><i class="fas fa-route"></i> Ruta:</strong><br>
+          ${train.fromStation} <i class="fas fa-arrow-right"></i> ${train.toStation}<br>
+          <strong>Progreso:</strong> ${train.progress}%
+        </p>
+        <p style="margin: 3px 0; font-size: 10px; color: #2196f3;">
+          <i class="fas fa-info-circle"></i> Posición estimada mediante interpolación
+        </p>
+      ` : `
+        ${train.platform ? `<p style="margin: 3px 0;"><strong><i class="fas fa-door-open"></i> Andén:</strong> ${train.platform}</p>` : ''}
+        <p style="margin: 3px 0;"><strong><i class="fas fa-signal"></i> Estado:</strong> ${statusText}</p>
+        ${train.speed && train.hasGPS !== false ? `<p style="margin: 3px 0;"><strong><i class="fas fa-tachometer-alt"></i> Velocidad:</strong> ${train.speed} km/h</p>` : ''}
+      `}
+      ${routeHTML}
+      ${alertsHTML}
+      <p style="margin: 3px 0; font-size: 10px; color: #999;"><strong><i class="fas fa-sync-alt"></i> Actualizado:</strong> ${new Date(train.updated).toLocaleTimeString('es-ES')}</p>
+    </div>
+  `;
+  
+  let icon = getTrainIcon(train);
+  
+  if (train.isCanceled) {
+    icon = trainIcons.default;
+  } else if (delayMin > 10) {
+    icon = trainIcons.ave;
+  } else if (delayMin > 5) {
+    icon = trainIcons.media;
+  }
+  
+  if (markers.has(key)) {
+    const marker = markers.get(key);
+    marker.setLatLng([train.lat, train.lon]);
+    marker.setPopupContent(popupHTML);
+    marker.setIcon(icon);
+  } else {
+    const marker = L.marker([train.lat, train.lon], { icon }).bindPopup(popupHTML);
+    
+    if (clusterEnabled) {
+      clusterGroup.addLayer(marker);
+    } else {
+      marker.addTo(map);
+    }
+    
+    markers.set(key, marker);
+  }
+  
+  if (filters.trajectories && !train.isStationary && !train.isInterpolated && train.hasGPS !== false) {
+    updateTrajectory(train);
+  }
+}
+
+
+    function updateStations(stations) {
+      if (!filters.stations) {
+        stationsLayer.clearLayers();
+        stationMarkers.clear();
+        return;
+      }
+      
+      currentStations = stations;
+      
+      stations.forEach(station => {
+        const key = `station-${station.id}`;
+        
+        if (stationMarkers.has(key)) {
+          return;
+        }
+        
+        let icon = stationIcons.conventional;
+        let type = 'Convencional';
+        
+        if (station.isCercanias) {
+          icon = stationIcons.cercanias;
+          type = 'Cercanías';
+        } else if (station.isFeve) {
+          icon = stationIcons.feve;
+          type = 'FEVE';
+        }
+        
+        const popupHTML = `
+          <div class="station-popup">
+            <h3><i class="fas fa-building"></i> ${station.name}</h3>
+            <p><strong>Tipo:</strong> ${type}</p>
+            <p><strong>Provincia:</strong> ${station.province}</p>
+            <p><strong>Código:</strong> ${station.id}</p>
+            ${station.city ? `<p><strong>Ciudad:</strong> ${station.city}</p>` : ''}
+            ${station.address && station.address !== 'nan' ? `<p><strong>Dirección:</strong> ${station.address}</p>` : ''}
+          </div>
+        `;
+        
+        const marker = L.marker([station.lat, station.lon], { icon })
+          .bindPopup(popupHTML);
+        
+        stationsLayer.addLayer(marker);
+        stationMarkers.set(key, marker);
+      });
+      
+      document.getElementById('station-count').textContent = stations.length;
+    }
+
+    function removeOldMarkers(currentIds) {
+      for (const [id, marker] of markers) {
+        if (!currentIds.has(id)) {
+          if (clusterEnabled) {
+            clusterGroup.removeLayer(marker);
+          } else {
+            map.removeLayer(marker);
+          }
+          markers.delete(id);
+          
+          if (trajectoryLines.has(id)) {
+            map.removeLayer(trajectoryLines.get(id));
+            trajectoryLines.delete(id);
+          }
+          trajectories.delete(id);
+        }
+      }
+    }
+    function updateAlertsPanel(alerts) {
+      const alertsContainer = document.getElementById('alerts-content');
+      const alertsTitle = document.querySelector('.alerts-panel h3');
+      
+      if (!alerts || alerts.length === 0) {
+        alertsContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px 0;"><i class="fas fa-check-circle" style="color: #4caf50;"></i> Sin alertas activas</p>';
+        if (alertsTitle) {
+          alertsTitle.innerHTML = '<i class="fas fa-bell"></i> Alertas Activas';
+        }
+        return;
+      }
+      
+      if (alertsTitle) {
+        alertsTitle.innerHTML = `
+          <i class="fas fa-bell"></i> Alertas Activas 
+          <span class="alerts-badge">${alerts.length}</span>
+        `;
+      }
+      
+      const sortedAlerts = alerts.sort((a, b) => {
+        const severityOrder = { 'SEVERE': 0, 'WARNING': 1, 'INFO': 2 };
+        return (severityOrder[a.severity] || 3) - (severityOrder[b.severity] || 3);
+      });
+      
+      let html = '';
+      sortedAlerts.slice(0, 10).forEach((alert, index) => {
+        const severityClass = alert.severity.toLowerCase();
+        
+        let icon = '<i class="fas fa-exclamation-triangle"></i>';
+        if (alert.severity === 'SEVERE') {
+          icon = '<i class="fas fa-times-circle"></i>';
+        } else if (alert.severity === 'INFO') {
+          icon = '<i class="fas fa-info-circle"></i>';
+        }
+        
+        let affectedInfo = '';
+        if (alert.affectedLines && alert.affectedLines.length > 0) {
+          affectedInfo = `Líneas: ${alert.affectedLines.join(', ')}`;
+        } else if (alert.affectedRoutes && alert.affectedRoutes.length > 0) {
+          const lines = new Set();
+          alert.affectedRoutes.forEach(routeId => {
+            const match = routeId.match(/C\d+|R\d+|MD|LD|AV/);
+            if (match) lines.add(match[0]);
+          });
+          affectedInfo = lines.size > 0 
+            ? `Líneas: ${Array.from(lines).slice(0, 5).join(', ')}${lines.size > 5 ? '...' : ''}` 
+            : `${alert.affectedRoutes.length} rutas afectadas`;
+        } else if (alert.affectedStops && alert.affectedStops.length > 0) {
+          affectedInfo = `${alert.affectedStops.length} estaciones afectadas`;
+        } else {
+          affectedInfo = 'Todas las líneas';
+        }
+        
+        html += `
+          <div class="alert-item ${severityClass}" data-alert-index="${index}">
+            <strong>${icon} ${alert.header}</strong>
+            ${alert.causeText ? `<span class="alert-cause">${alert.causeText}</span>` : ''}
+            ${alert.description ? `<div class="alert-description">${alert.description.substring(0, 150)}${alert.description.length > 150 ? '...' : ''}</div>` : ''}
+            <div class="alert-affected"><i class="fas fa-map-marker-alt"></i> ${affectedInfo}</div>
+          </div>
+        `;
+      });
+      
+      if (alerts.length > 10) {
+        html += `<p style="text-align: center; font-size: 10px; color: #999; margin-top: 8px;">+ ${alerts.length - 10} alertas más</p>`;
+      }
+      
+      alertsContainer.innerHTML = html;
+      
+      document.querySelectorAll('.alert-item').forEach((item, index) => {
+        item.addEventListener('click', () => {
+          const alertIndex = parseInt(item.getAttribute('data-alert-index'));
+          if (alertIndex !== null && alertIndex < alerts.length) {
+            showAlertDetailModal(alerts[alertIndex]);
+          }
+        });
+      });
+    }
+
+    function showAlertDetailModal(alert) {
+      const modalOverlay = document.createElement('div');
+      modalOverlay.id = 'alert-modal-overlay';
+      modalOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.2s;
+      `;
+      
+      let affectedDetails = '';
+      
+      if (alert.affectedLines && alert.affectedLines.length > 0) {
+        affectedDetails += `
+          <p><i class="fas fa-train" style="color: #3388ff;"></i> <strong>Líneas afectadas:</strong> 
+          ${alert.affectedLines.map(line => `<span style="background:#3388ff;color:white;padding:4px 10px;border-radius:4px;margin-right:6px;font-weight:bold;display:inline-block;">${line}</span>`).join('')}
+          </p>
+        `;
+      }
+      
+      if (alert.affectedRoutes && alert.affectedRoutes.length > 0 && alert.affectedRoutes.length <= 5) {
+        affectedDetails += `<p><i class="fas fa-route" style="color: #666;"></i> <strong>Rutas:</strong> ${alert.affectedRoutes.join(', ')}</p>`;
+      } else if (alert.affectedRoutes && alert.affectedRoutes.length > 5) {
+        affectedDetails += `<p><i class="fas fa-route" style="color: #666;"></i> <strong>Rutas afectadas:</strong> ${alert.affectedRoutes.length}</p>`;
+      }
+      
+      if (alert.affectedStops && alert.affectedStops.length > 0) {
+        affectedDetails += `<p><i class="fas fa-building" style="color: #666;"></i> <strong>Estaciones afectadas:</strong> ${alert.affectedStops.length}</p>`;
+      }
+      
+      if (alert.affectedTrips && alert.affectedTrips.length > 0) {
+        affectedDetails += `<p><i class="fas fa-ticket-alt" style="color: #666;"></i> <strong>Viajes afectados:</strong> ${alert.affectedTrips.length}</p>`;
+      }
+      
+      let effectText = alert.effect || 'UNKNOWN_EFFECT';
+      const effectTranslations = {
+        'NO_SERVICE': 'Sin servicio',
+        'REDUCED_SERVICE': 'Servicio reducido',
+        'SIGNIFICANT_DELAYS': 'Retrasos significativos',
+        'DETOUR': 'Desvío',
+        'ADDITIONAL_SERVICE': 'Servicio adicional',
+        'MODIFIED_SERVICE': 'Servicio modificado',
+        'OTHER_EFFECT': 'Otro efecto',
+        'STOP_MOVED': 'Parada movida'
+      };
+      effectText = effectTranslations[effectText] || effectText;
+      
+      let icon = '<i class="fas fa-exclamation-triangle"></i>';
+      let severityColor = '#ff9800';
+      if (alert.severity === 'SEVERE') {
+        icon = '<i class="fas fa-times-circle"></i>';
+        severityColor = '#f44336';
+      } else if (alert.severity === 'INFO') {
+        icon = '<i class="fas fa-info-circle"></i>';
+        severityColor = '#2196f3';
+      }
+      
+      modalOverlay.innerHTML = `
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 24px;
+          max-width: 600px;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+          font-family: Arial, sans-serif;
+          position: relative;
+        ">
+          <div style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+          ">
+            <h2 style="
+              margin: 0;
+              color: ${severityColor};
+              font-size: 20px;
+              flex: 1;
+            ">${icon} ${alert.header}</h2>
+            <button onclick="closeAlertModal()" style="
+              background: none;
+              border: none;
+              font-size: 28px;
+              cursor: pointer;
+              padding: 0;
+              width: 32px;
+              height: 32px;
+              line-height: 28px;
+              text-align: center;
+              color: #999;
+              border-radius: 50%;
+              transition: all 0.2s;
+            " onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">×</button>
+          </div>
+          
+          <div style="
+            background: ${alert.severity === 'SEVERE' ? '#ffebee' : alert.severity === 'WARNING' ? '#fff3e0' : '#e3f2fd'};
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border-left: 4px solid ${severityColor};
+          ">
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+              <i class="fas fa-wrench" style="color: ${severityColor};"></i>
+              <strong style="color: #333;">Causa:</strong>
+              <span>${alert.causeText || 'No especificada'}</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <i class="fas fa-bolt" style="color: ${severityColor};"></i>
+              <strong style="color: #333;">Efecto:</strong>
+              <span>${effectText}</span>
+            </div>
+          </div>
+          
+          ${alert.description ? `
+            <div style="
+              padding: 16px;
+              background: #f9f9f9;
+              border-radius: 8px;
+              margin-bottom: 16px;
+              line-height: 1.6;
+              color: #333;
+            ">
+              <i class="fas fa-align-left" style="color: #666; margin-right: 8px;"></i>
+              ${alert.description.replace(/\\n/g, '<br>')}
+            </div>
+          ` : ''}
+          
+          ${affectedDetails ? `
+            <div style="
+              border-top: 1px solid #e0e0e0;
+              padding-top: 16px;
+              margin-top: 16px;
+            ">
+              ${affectedDetails}
+            </div>
+          ` : ''}
+          
+          ${alert.url ? `
+            <div style="margin-top: 16px;">
+              <a href="${alert.url}" target="_blank" style="
+                display: inline-block;
+                padding: 10px 20px;
+                background: #3388ff;
+                color: white;
+                text-decoration: none;
+                border-radius: 6px;
+                font-weight: bold;
+                transition: background 0.2s;
+              " onmouseover="this.style.background='#2266dd'" onmouseout="this.style.background='#3388ff'">
+                <i class="fas fa-external-link-alt"></i> Más información
+              </a>
+            </div>
+          ` : ''}
+          
+          <div style="
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 11px;
+            color: #999;
+          ">
+            <i class="fas fa-fingerprint"></i> <strong>ID de alerta:</strong> ${alert.id}<br>
+            <i class="fas fa-clock"></i> <strong>Última actualización:</strong> ${new Date(alert.timestamp).toLocaleString('es-ES')}
+          </div>
+        </div>
+      `;
+      
+      modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+          closeAlertModal();
+        }
+      });
+      
+      document.body.appendChild(modalOverlay);
+    }
+
+    function closeAlertModal() {
+      const modal = document.getElementById('alert-modal-overlay');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAlertModal();
+      }
+    });
+
+    function updateStats(trains, stations, alerts) {
+      const stats = {
+        total: trains.length,
+        cercanias: trains.filter(t => t.line && (t.line.startsWith('C') || t.line.startsWith('R') || t.line.startsWith('T'))).length,
+        media: trains.filter(t => t.line && (t.line === 'MD' || t.line === 'LD')).length,
+        ave: trains.filter(t => t.line && t.line === 'AV').length,
+        withPlatform: trains.filter(t => t.platform).length,
+        avgSpeed: trains.filter(t => t.speed > 0).length > 0 
+          ? Math.round(trains.filter(t => t.speed > 0).reduce((sum, t) => sum + t.speed, 0) / trains.filter(t => t.speed > 0).length)
+          : 0,
+        trainsWithAlerts: trains.filter(t => t.hasAlerts).length,
+        onTime: trains.filter(t => (t.delayMinutes || 0) === 0 && !t.isCanceled).length,
+        delayed: trains.filter(t => (t.delayMinutes || 0) > 0 && (t.delayMinutes || 0) <= 5).length,
+        late: trains.filter(t => (t.delayMinutes || 0) > 5).length,
+        canceled: trains.filter(t => t.isCanceled).length,
+        withGPS: trains.filter(t => t.hasGPS === true).length,
+        withoutGPS: trains.filter(t => t.hasGPS === false).length,
+        atStations: trains.filter(t => t.isStationary && t.hasGPS === true).length,
+        interpolated: trains.filter(t => t.isInterpolated).length
+      };
+      
+      const totalWithDelayInfo = stats.onTime + stats.delayed + stats.late;
+      const onTimePercent = totalWithDelayInfo > 0 
+        ? Math.round((stats.onTime / totalWithDelayInfo) * 100)
+        : 0;
+      
+      document.getElementById('stats-content').innerHTML = `
+        <p><i class="fas fa-train"></i> <strong>Total trenes:</strong> ${stats.total}</p>
+        <p><i class="fas fa-building"></i> <strong>Estaciones:</strong> ${stations ? stations.length : 0}</p>
+        <p><i class="fas fa-bell"></i> <strong>Alertas activas:</strong> ${alerts ? alerts.length : 0}</p>
+        ${stats.trainsWithAlerts > 0 ? `<p><i class="fas fa-exclamation-circle"></i> <strong>Trenes afectados:</strong> ${stats.trainsWithAlerts}</p>` : ''}
+        <hr style="margin: 6px 0; border: none; border-top: 1px solid #ddd;">
+        <p><i class="fas fa-circle" style="color: #3388ff;"></i> <strong>Cercanías:</strong> ${stats.cercanias}</p>
+        <p><i class="fas fa-circle" style="color: #ff9933;"></i> <strong>Media Dist.:</strong> ${stats.media}</p>
+        <p><i class="fas fa-circle" style="color: #ff3333;"></i> <strong>AVE:</strong> ${stats.ave}</p>
+        <hr style="margin: 6px 0; border: none; border-top: 1px solid #ddd;">
+        <p><i class="fas fa-satellite-dish"></i> <strong>Con GPS:</strong> ${stats.withGPS}</p>
+        <p><i class="fas fa-map-marker-alt"></i> <strong>Sin GPS:</strong> ${stats.withoutGPS}</p>
+        <p><i class="fas fa-building"></i> <strong>En estaciones:</strong> ${stats.atStations}</p>
+        <p><i class="fas fa-location-arrow"></i> <strong>Interpolados:</strong> ${stats.interpolated}</p>
+        ${stats.avgSpeed > 0 ? `<p><i class="fas fa-tachometer-alt"></i> <strong>Velocidad media:</strong> ${stats.avgSpeed} km/h</p>` : ''}
+        ${totalWithDelayInfo > 0 ? `
+          <hr style="margin: 6px 0; border: none; border-top: 1px solid #ddd;">
+          <p><i class="fas fa-check-circle" style="color: #4caf50;"></i> <strong>A tiempo:</strong> ${stats.onTime} (${onTimePercent}%)</p>
+          <p><i class="fas fa-clock" style="color: #ff9800;"></i> <strong>Con retraso:</strong> ${stats.delayed + stats.late}</p>
+          <p><i class="fas fa-ban" style="color: #f44336;"></i> <strong>Cancelados:</strong> ${stats.canceled}</p>
+        ` : ''}
+      `;
+    }
+    
+    function updateHeatmap(trains) {
+      if (!filters.heatmap) {
+        if (heatmapLayer) {
+          map.removeLayer(heatmapLayer);
+          heatmapLayer = null;
+        }
+        return;
+      }
+      
+      const heatPoints = trains.map(t => [t.lat, t.lon, 1]);
+      
+      if (heatmapLayer) {
+        map.removeLayer(heatmapLayer);
+      }
+      
+      heatmapLayer = L.heatLayer(heatPoints, {
+        radius: 25,
+        blur: 35,
+        maxZoom: 10,
+        max: 1.0,
+        gradient: {
+          0.0: 'blue',
+          0.5: 'yellow',
+          1.0: 'red'
+        }
+      }).addTo(map);
+    }
+// Obtener el recorrido completo de un tren por su tripId
+function getTripRoute(tripId) {
+  // Buscar en los trip updates
+  for (const e of items[2].json.entity) { // Asumiendo que trip_updates está en items[2]
+    const tripUpdate = e.trip_update || e.tripUpdate;
+    if (!tripUpdate) continue;
+    
+    const trip = tripUpdate.trip;
+    const currentTripId = trip?.trip_id || trip?.tripId;
+    
+    if (currentTripId === tripId) {
+      const stopTimeUpdates = tripUpdate.stop_time_update || tripUpdate.stopTimeUpdate || [];
+      return stopTimeUpdates;
+    }
+  }
+  
+  return null;
+}
+
+// Mostrar recorrido completo en modal
+function showFullRoute(tripId) {
+  const stopTimeUpdates = getTripRoute(tripId);
+  
+  if (!stopTimeUpdates || stopTimeUpdates.length === 0) {
+    alert('No se pudo obtener el recorrido del tren');
+    return;
+  }
+  
+  const now = Math.floor(Date.now() / 1000);
+  
+  let routeHTML = `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 10001;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s;
+    " onclick="this.remove()">
+      <div style="
+        background: white;
+        border-radius: 12px;
+        padding: 0;
+        max-width: 700px;
+        max-height: 80vh;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+      " onclick="event.stopPropagation()">
+        <div style="
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        ">
+          <h2 style="margin: 0; font-size: 20px;">
+            <i class="fas fa-route"></i> Recorrido del Tren ${tripId}
+          </h2>
+          <button onclick="this.closest('[onclick*=remove]').remove()" style="
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">×</button>
+        </div>
+        
+        <div style="overflow-y: auto; padding: 20px;">
+          <div style="position: relative;">
+  `;
+  
+  stopTimeUpdates.forEach((stop, index) => {
+    const stopId = stop.stop_id || stop.stopId;
+    const station = stationsById.get(stopId);
+    const stationName = station ? station.name : `Estación ${stopId}`;
+    
+    const scheduleRelationship = stop.schedule_relationship || stop.scheduleRelationship;
+    const isSkipped = scheduleRelationship === 'SKIPPED';
+    
+    const arrivalTime = (stop.arrival?.time || 0);
+    const departureTime = (stop.departure?.time || 0);
+    const arrivalDelay = (stop.arrival?.delay || 0);
+    const departureDelay = (stop.departure?.delay || 0);
+    
+    const estimatedArrival = arrivalTime + arrivalDelay;
+    const estimatedDeparture = departureTime + departureDelay;
+    
+    const isPast = now > estimatedDeparture;
+    const isCurrent = now >= estimatedArrival && now <= estimatedDeparture;
+    const isFuture = now < estimatedArrival;
+    
+    let statusColor = '#9e9e9e';
+    let statusIcon = 'circle';
+    let statusText = 'Pendiente';
+    
+    if (isSkipped) {
+      statusColor = '#ff9800';
+      statusIcon = 'times-circle';
+      statusText = 'Omitida';
+    } else if (isPast) {
+      statusColor = '#4caf50';
+      statusIcon = 'check-circle';
+      statusText = 'Completada';
+    } else if (isCurrent) {
+      statusColor = '#2196f3';
+      statusIcon = 'train';
+      statusText = 'Actual';
+    }
+    
+    const delayMinutes = Math.round(arrivalDelay / 60);
+    const delayText = delayMinutes > 0 ? `+${delayMinutes} min` : delayMinutes < 0 ? `${delayMinutes} min` : 'A tiempo';
+    const delayColor = delayMinutes > 5 ? '#f44336' : delayMinutes > 0 ? '#ff9800' : '#4caf50';
+    
+    routeHTML += `
+      <div style="
+        display: flex;
+        gap: 20px;
+        margin-bottom: ${index === stopTimeUpdates.length - 1 ? '0' : '20px'};
+        position: relative;
+      ">
+        ${index < stopTimeUpdates.length - 1 ? `
+          <div style="
+            position: absolute;
+            left: 19px;
+            top: 40px;
+            bottom: -20px;
+            width: 3px;
+            background: ${statusColor};
+            opacity: 0.3;
+          "></div>
+        ` : ''}
+        
+        <div style="
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: ${statusColor};
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          font-size: 18px;
+          z-index: 1;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        ">
+          <i class="fas fa-${statusIcon}"></i>
+        </div>
+        
+        <div style="flex: 1; padding-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+            <strong style="font-size: 15px; color: #333;">${stationName}</strong>
+            <span style="
+              background: ${statusColor};
+              color: white;
+              padding: 3px 10px;
+              border-radius: 12px;
+              font-size: 11px;
+              font-weight: bold;
+            ">${statusText}</span>
+          </div>
+          
+          ${!isSkipped ? `
+            <div style="font-size: 13px; color: #666; margin-top: 8px;">
+              ${arrivalTime > 0 ? `
+                <div style="margin: 3px 0;">
+                  <i class="fas fa-arrow-down" style="color: #2196f3;"></i>
+                  <strong>Llegada:</strong> ${new Date(estimatedArrival * 1000).toLocaleTimeString('es-ES')}
+                  <span style="color: ${delayColor}; font-weight: bold; margin-left: 8px;">${delayText}</span>
+                </div>
+              ` : ''}
+              ${departureTime > 0 ? `
+                <div style="margin: 3px 0;">
+                  <i class="fas fa-arrow-up" style="color: #ff9800;"></i>
+                  <strong>Salida:</strong> ${new Date(estimatedDeparture * 1000).toLocaleTimeString('es-ES')}
+                </div>
+              ` : ''}
+            </div>
+          ` : `
+            <div style="font-size: 13px; color: #ff9800; margin-top: 5px;">
+              <i class="fas fa-exclamation-triangle"></i> Esta parada ha sido omitida
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  });
+  
+  routeHTML += `
+          </div>
+        </div>
+        
+        <div style="
+          background: #f5f5f5;
+          padding: 15px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-top: 1px solid #e0e0e0;
+        ">
+          <span style="font-size: 12px; color: #666;">
+            <strong>${stopTimeUpdates.length}</strong> paradas totales
+          </span>
+          <button onclick="this.closest('[onclick*=remove]').remove()" style="
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+          ">
+            <i class="fas fa-times"></i> Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', routeHTML);
+}
+
+    async function updateMap() {
+      try {
+        const response = await fetch(WEBHOOK_URL, { 
+          cache: 'no-store',
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('📦 Datos recibidos del webhook:', data);
+        
+        let alerts = [];
+        let stations = [];
+        
+        if (data.points && Array.isArray(data.points)) {
+          currentTrains = data.points;
+          alerts = data.alerts || [];
+          stations = data.stations || [];
+          currentAlerts = alerts;
+          
+          console.log('✅ Formato OBJETO detectado -', 
+                      currentTrains.length, 'trenes,', 
+                      stations.length, 'estaciones,',
+                      alerts.length, 'alertas');
+        } else if (Array.isArray(data)) {
+          currentTrains = data;
+          console.log('✅ Formato ARRAY detectado -', currentTrains.length, 'trenes');
+        } else {
+          console.error('❌ Formato de datos no reconocido:', data);
+          currentTrains = [];
+        }
+        
+        if (currentTrains && currentTrains.length > 0) {
+          const currentIds = new Set();
+          let addedCount = 0;
+          
+          currentTrains.forEach((train) => {
+            const show = shouldShowTrain(train.line);
+            
+            if (show) {
+              currentIds.add(train.id);
+              updateMarker(train);
+              addedCount++;
+            }
+          });
+          
+          console.log(`✅ ${addedCount} trenes añadidos al mapa`);
+          console.log(`   Con GPS: ${currentTrains.filter(t => t.hasGPS === true).length}`);
+          console.log(`   Sin GPS: ${currentTrains.filter(t => t.hasGPS === false).length}`);
+          console.log(`   Con alertas: ${currentTrains.filter(t => t.hasAlerts).length}`);
+          
+          removeOldMarkers(currentIds);
+          updateStats(currentTrains, stations, alerts);
+          updateAlertsPanel(alerts);
+          updateHeatmap(currentTrains);
+          
+          document.getElementById('train-count').textContent = currentIds.size;
+          document.getElementById('last-update').textContent = new Date().toLocaleTimeString('es-ES');
+          
+          document.getElementById('alerts-count').textContent = alerts.length;
+          const alertsCountEl = document.getElementById('alerts-count');
+          if (alerts.length > 20) {
+            alertsCountEl.style.color = '#f44336';
+          } else if (alerts.length > 10) {
+            alertsCountEl.style.color = '#ff9800';
+          } else if (alerts.length > 0) {
+            alertsCountEl.style.color = '#ff9800';
+          } else {
+            alertsCountEl.style.color = '#4caf50';
+          }
+        }
+        
+        if (stations && stations.length > 0 && stationMarkers.size === 0) {
+          console.log(`✅ Cargando ${stations.length} estaciones`);
+          updateStations(stations);
+        }
+        
+      } catch (error) {
+        console.error('❌ Error al actualizar mapa:', error);
+        document.getElementById('last-update').textContent = 'ERROR';
+      } finally {
+        setTimeout(updateMap, 5000);
+      }
+    }
+
+
+    // ============================================
+    // PANEL DE ALERTAS COMPLETO
+    // ============================================
+    
+    let allAlerts = [];
+    let filteredAlerts = [];
+    
+    // Abrir panel de alertas
+    document.getElementById('nav-alerts').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('alerts-panel-full').style.display = 'block';
+      document.getElementById('map').style.display = 'none';
+      renderAlertsPanel();
+    });
+    
+    // Cerrar panel
+    document.getElementById('close-alerts-panel').addEventListener('click', function() {
+      document.getElementById('alerts-panel-full').style.display = 'none';
+      document.getElementById('map').style.display = 'block';
+    });
+    
+    // Renderizar panel de alertas
+    function renderAlertsPanel() {
+      allAlerts = currentAlerts;
+      filteredAlerts = [...allAlerts];
+      
+      // Actualizar estadísticas
+      updateAlertsStats();
+      
+      // Poblar filtro de líneas
+      populateLinesFilter();
+      
+      // Aplicar filtros iniciales
+      applyAlertsFilters();
+    }
+    
+    // Actualizar estadísticas
+    function updateAlertsStats() {
+      const severeCount = allAlerts.filter(a => a.severity === 'SEVERE').length;
+      const warningCount = allAlerts.filter(a => a.severity === 'WARNING').length;
+      const infoCount = allAlerts.filter(a => a.severity === 'INFO').length;
+      
+      const allRoutes = new Set();
+      allAlerts.forEach(a => {
+        if (a.affectedRoutes) {
+          a.affectedRoutes.forEach(r => allRoutes.add(r));
+        }
+      });
+      
+      document.getElementById('stat-severe').textContent = severeCount;
+      document.getElementById('stat-warning').textContent = warningCount;
+      document.getElementById('stat-info').textContent = infoCount;
+      document.getElementById('stat-total').textContent = allAlerts.length;
+      document.getElementById('stat-affected-routes').textContent = allRoutes.size;
+    }
+    
+    // Poblar filtro de líneas
+    function populateLinesFilter() {
+      const lines = new Set();
+      allAlerts.forEach(alert => {
+        if (alert.affectedLines) {
+          alert.affectedLines.forEach(line => lines.add(line));
+        }
+      });
+      
+      const select = document.getElementById('filter-line');
+      select.innerHTML = '<option value="">Todas las líneas</option>';
+      
+      Array.from(lines).sort().forEach(line => {
+        const option = document.createElement('option');
+        option.value = line;
+        option.textContent = `Línea ${line}`;
+        select.appendChild(option);
+      });
+    }
+    
+    // Aplicar filtros
+    function applyAlertsFilters() {
+      const searchText = document.getElementById('alert-search').value.toLowerCase();
+      const severity = document.getElementById('filter-severity').value;
+      const cause = document.getElementById('filter-cause').value;
+      const line = document.getElementById('filter-line').value;
+      const dateFilter = document.getElementById('filter-date').value;
+      const sortBy = document.getElementById('sort-alerts').value;
+      
+      // Filtrar
+      filteredAlerts = allAlerts.filter(alert => {
+        // Búsqueda de texto
+        if (searchText) {
+          const searchable = `${alert.header} ${alert.description}`.toLowerCase();
+          if (!searchable.includes(searchText)) return false;
+        }
+        
+        // Severidad
+        if (severity && alert.severity !== severity) return false;
+        
+        // Causa
+        if (cause && alert.cause !== cause) return false;
+        
+        // Línea
+        if (line && (!alert.affectedLines || !alert.affectedLines.includes(line))) return false;
+        
+        // Fecha
+        if (dateFilter) {
+          const alertDate = new Date(alert.timestamp);
+          const now = new Date();
+          const dayInMs = 24 * 60 * 60 * 1000;
+          
+          switch(dateFilter) {
+            case 'today':
+              if (now - alertDate > dayInMs) return false;
+              break;
+            case 'yesterday':
+              if (now - alertDate > 2 * dayInMs || now - alertDate < dayInMs) return false;
+              break;
+            case 'week':
+              if (now - alertDate > 7 * dayInMs) return false;
+              break;
+            case 'month':
+              if (now - alertDate > 30 * dayInMs) return false;
+              break;
+          }
+        }
+        
+        return true;
+      });
+      
+      // Ordenar
+      switch(sortBy) {
+        case 'date-desc':
+          filteredAlerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          break;
+        case 'date-asc':
+          filteredAlerts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          break;
+        case 'severity':
+          const severityOrder = { 'SEVERE': 0, 'WARNING': 1, 'INFO': 2 };
+          filteredAlerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+          break;
+        case 'impact':
+          filteredAlerts.sort((a, b) => {
+            const impactA = (a.affectedRoutes?.length || 0) + (a.affectedStops?.length || 0);
+            const impactB = (b.affectedRoutes?.length || 0) + (b.affectedStops?.length || 0);
+            return impactB - impactA;
+          });
+          break;
+      }
+      
+      renderAlertsList();
+    }
+    
+    // Renderizar lista de alertas
+    function renderAlertsList() {
+      const container = document.getElementById('alerts-list-container');
+      
+      if (filteredAlerts.length === 0) {
+        container.innerHTML = `
+          <div class="no-alerts-message">
+            <i class="fas fa-check-circle"></i>
+            <h3>No se encontraron alertas</h3>
+            <p>No hay alertas que coincidan con los filtros seleccionados</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = filteredAlerts.map(alert => {
+        const icon = alert.severity === 'SEVERE' ? 'fa-times-circle' : alert.severity === 'WARNING' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+        
+        return `
+          <div class="alert-card ${alert.severity.toLowerCase()}" data-alert-id="${alert.id}">
+            <div class="alert-card-header">
+              <div class="alert-card-left">
+                <h3 class="alert-card-title">
+                  <i class="fas ${icon}"></i>
+                  ${alert.header}
+                  <span class="severity-badge ${alert.severity.toLowerCase()}">${alert.severity}</span>
+                </h3>
+                <div class="alert-card-meta">
+                  <span><i class="fas fa-calendar"></i> ${new Date(alert.timestamp).toLocaleDateString('es-ES')}</span>
+                  <span><i class="fas fa-clock"></i> ${new Date(alert.timestamp).toLocaleTimeString('es-ES')}</span>
+                  ${alert.causeText ? `<span><i class="fas fa-wrench"></i> ${alert.causeText}</span>` : ''}
+                  ${alert.affectedLines.length > 0 ? `<span><i class="fas fa-train"></i> ${alert.affectedLines.length} línea(s)</span>` : ''}
+                </div>
+              </div>
+              <div class="alert-card-right">
+                <i class="fas fa-chevron-down expand-icon"></i>
+              </div>
+            </div>
+            <div class="alert-card-body">
+              ${alert.description ? `
+                <div class="alert-card-description">
+                  <strong><i class="fas fa-align-left"></i> Descripción:</strong><br>
+                  ${alert.description}
+                </div>
+              ` : ''}
+              <div class="alert-card-details">
+                ${alert.affectedLines.length > 0 ? `
+                  <div class="detail-item">
+                    <strong><i class="fas fa-train"></i> Líneas Afectadas:</strong>
+                    <div>
+                      ${alert.affectedLines.map(line => `<span class="line-badge">${line}</span>`).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+                ${alert.affectedStops && alert.affectedStops.length > 0 ? `
+                  <div class="detail-item">
+                    <strong><i class="fas fa-building"></i> Estaciones Afectadas:</strong>
+                    <div style="font-size: 13px; color: #666;">${alert.affectedStops.length} estación(es)</div>
+                  </div>
+                ` : ''}
+                ${alert.affectedRoutes && alert.affectedRoutes.length > 0 ? `
+                  <div class="detail-item">
+                    <strong><i class="fas fa-route"></i> Rutas Afectadas:</strong>
+                    <div style="font-size: 13px; color: #666;">${alert.affectedRoutes.length} ruta(s)</div>
+                  </div>
+                ` : ''}
+                <div class="detail-item">
+                  <strong><i class="fas fa-fingerprint"></i> ID de Alerta:</strong>
+                  <div style="font-size: 12px; color: #666; font-family: monospace;">${alert.id}</div>
+                </div>
+              </div>
+              ${alert.url ? `
+                <div style="margin-top: 15px;">
+                  <a href="${alert.url}" target="_blank" class="btn-secondary" style="text-decoration: none;">
+                    <i class="fas fa-external-link-alt"></i> Más información
+                  </a>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Event listeners para expandir/colapsar
+      document.querySelectorAll('.alert-card').forEach(card => {
+        card.addEventListener('click', function() {
+          this.classList.toggle('expanded');
+        });
+      });
+    }
+    
+    // Event listeners para filtros
+    document.getElementById('alert-search').addEventListener('input', applyAlertsFilters);
+    document.getElementById('filter-severity').addEventListener('change', applyAlertsFilters);
+    document.getElementById('filter-cause').addEventListener('change', applyAlertsFilters);
+    document.getElementById('filter-line').addEventListener('change', applyAlertsFilters);
+    document.getElementById('filter-date').addEventListener('change', applyAlertsFilters);
+    document.getElementById('sort-alerts').addEventListener('change', applyAlertsFilters);
+    
+    // Resetear filtros
+    document.getElementById('reset-filters').addEventListener('click', function() {
+      document.getElementById('alert-search').value = '';
+      document.getElementById('filter-severity').value = '';
+      document.getElementById('filter-cause').value = '';
+      document.getElementById('filter-line').value = '';
+      document.getElementById('filter-date').value = '';
+      document.getElementById('sort-alerts').value = 'date-desc';
+      applyAlertsFilters();
+    });
+    
+    // Exportar alertas a CSV
+    document.getElementById('export-alerts-csv').addEventListener('click', function() {
+      if (filteredAlerts.length === 0) {
+        alert('No hay alertas para exportar');
+        return;
+      }
+      
+      let csv = 'ID,Fecha,Hora,Severidad,Titulo,Descripcion,Causa,Efecto,Lineas_Afectadas,Rutas_Afectadas,Estaciones_Afectadas\n';
+      
+      filteredAlerts.forEach(alert => {
+        const date = new Date(alert.timestamp);
+        csv += `"${alert.id}",`;
+        csv += `"${date.toLocaleDateString('es-ES')}",`;
+        csv += `"${date.toLocaleTimeString('es-ES')}",`;
+        csv += `"${alert.severity}",`;
+        csv += `"${(alert.header || '').replace(/"/g, '""')}",`;
+        csv += `"${(alert.description || '').replace(/"/g, '""')}",`;
+        csv += `"${alert.causeText || ''}",`;
+        csv += `"${alert.effect || ''}",`;
+        csv += `"${alert.affectedLines.join(', ')}",`;
+        csv += `"${alert.affectedRoutes?.length || 0}",`;
+        csv += `"${alert.affectedStops?.length || 0}"\n`;
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `alertas-renfe-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    
+    // Exportar a Excel (formato HTML que Excel puede abrir)
+    document.getElementById('export-alerts-excel').addEventListener('click', function() {
+      if (filteredAlerts.length === 0) {
+        alert('No hay alertas para exportar');
+        return;
+      }
+      
+      let html = `
+        <html xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            table { border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #667eea; color: white; font-weight: bold; }
+            .severe { background-color: #ffebee; }
+            .warning { background-color: #fff3e0; }
+            .info { background-color: #e3f2fd; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <tr>
+              <th>ID</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Severidad</th>
+              <th>Título</th>
+              <th>Descripción</th>
+              <th>Causa</th>
+              <th>Líneas</th>
+              <th>Rutas</th>
+              <th>Estaciones</th>
+            </tr>
+      `;
+      
+      filteredAlerts.forEach(alert => {
+        const date = new Date(alert.timestamp);
+        html += `
+          <tr class="${alert.severity.toLowerCase()}">
+            <td>${alert.id}</td>
+            <td>${date.toLocaleDateString('es-ES')}</td>
+            <td>${date.toLocaleTimeString('es-ES')}</td>
+            <td>${alert.severity}</td>
+            <td>${alert.header}</td>
+            <td>${alert.description || ''}</td>
+            <td>${alert.causeText || ''}</td>
+            <td>${alert.affectedLines.join(', ')}</td>
+            <td>${alert.affectedRoutes?.length || 0}</td>
+            <td>${alert.affectedStops?.length || 0}</td>
+          </tr>
+        `;
+      });
+      
+      html += '</table></body></html>';
+      
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `alertas-renfe-${new Date().toISOString().slice(0,10)}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // EVENT LISTENERS
+    document.getElementById('filter-cercanias').addEventListener('change', (e) => {
+      filters.cercanias = e.target.checked;
+      const currentIds = new Set();
+      currentTrains.forEach(train => {
+        if (shouldShowTrain(train.line)) {
+          currentIds.add(train.id);
+          updateMarker(train);
+        }
+      });
+      removeOldMarkers(currentIds);
+    });
+
+    document.getElementById('filter-media').addEventListener('change', (e) => {
+      filters.media = e.target.checked;
+      const currentIds = new Set();
+      currentTrains.forEach(train => {
+        if (shouldShowTrain(train.line)) {
+          currentIds.add(train.id);
+          updateMarker(train);
+        }
+      });
+      removeOldMarkers(currentIds);
+    });
+
+    document.getElementById('filter-ave').addEventListener('change', (e) => {
+      filters.ave = e.target.checked;
+      const currentIds = new Set();
+      currentTrains.forEach(train => {
+        if (shouldShowTrain(train.line)) {
+          currentIds.add(train.id);
+          updateMarker(train);
+        }
+      });
+      removeOldMarkers(currentIds);
+    });
+    
+    document.getElementById('toggle-stations').addEventListener('change', (e) => {
+      filters.stations = e.target.checked;
+      if (e.target.checked) {
+        updateStations(currentStations);
+      } else {
+        stationsLayer.clearLayers();
+        stationMarkers.clear();
+      }
+    });
+    
+    document.getElementById('toggle-trajectories').addEventListener('change', (e) => {
+      filters.trajectories = e.target.checked;
+      if (!e.target.checked) {
+        clearTrajectories();
+      }
+    });
+    
+    document.getElementById('toggle-heatmap').addEventListener('change', (e) => {
+      filters.heatmap = e.target.checked;
+      updateHeatmap(currentTrains);
+    });
+
+    document.getElementById('reset-view').addEventListener('click', () => {
+      map.setView([40.4168, -3.7038], 6);
+    });
+
+    document.getElementById('search-btn').addEventListener('click', () => {
+      const searchQuery = document.getElementById('train-search').value.trim().toLowerCase();
+      if (!searchQuery) {
+        alert('Por favor, introduce un ID de tren o nombre de estación');
+        return;
+      }
+      
+      const marker = markers.get(searchQuery);
+      if (marker) {
+        map.setView(marker.getLatLng(), 13);
+        marker.openPopup();
+        return;
+      }
+      
+      const trainsByLine = currentTrains.filter(t => 
+        t.line && t.line.toLowerCase().includes(searchQuery)
+      );
+      
+      if (trainsByLine.length > 0) {
+        const train = trainsByLine[0];
+        const trainMarker = markers.get(train.id);
+        if (trainMarker) {
+          map.setView([train.lat, train.lon], 13);
+          trainMarker.openPopup();
+          return;
+        }
+      }
+      
+      const station = currentStations.find(s => 
+        s.name.toLowerCase().includes(searchQuery) || 
+        s.city.toLowerCase().includes(searchQuery) ||
+        s.province.toLowerCase().includes(searchQuery)
+      );
+      
+      if (station) {
+        const stationKey = `station-${station.id}`;
+        const stationMarker = stationMarkers.get(stationKey);
+        if (stationMarker) {
+          map.setView([station.lat, station.lon], 13);
+          stationMarker.openPopup();
+        } else {
+          map.setView([station.lat, station.lon], 13);
+        }
+        return;
+      }
+      
+      alert(`No se encontró "${searchQuery}"`);
+    });
+    
+    document.getElementById('train-search').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('search-btn').click();
+      }
+    });
+
+    document.getElementById('toggle-dark').addEventListener('click', function() {
+      if (darkMode) {
+        map.removeLayer(darkTiles);
+        lightTiles.addTo(map);
+        this.innerHTML = '<i class="fas fa-moon"></i> Modo Nocturno';
+        this.classList.remove('active');
+      } else {
+        map.removeLayer(lightTiles);
+        darkTiles.addTo(map);
+        this.innerHTML = '<i class="fas fa-sun"></i> Modo Diurno';
+        this.classList.add('active');
+      }
+      darkMode = !darkMode;
+    });
+
+    document.getElementById('export-csv').addEventListener('click', () => {
+      if (currentTrains.length === 0) {
+        alert('No hay datos para exportar');
+        return;
+      }
+      
+      let csv = 'ID,Tipo,Linea,Plataforma,Latitud,Longitud,Velocidad_kmh,Estado,Retraso_min,Cancelado,GPS,Estacionario,Interpolado,Estacion,Desde,Hasta,Progreso,Actualizado\n';
+      
+      currentTrains.forEach(train => {
+        csv += `${train.id},`;
+        csv += `${train.hasGPS === false ? 'Sin GPS' : train.isStationary ? 'Estacionario' : train.isInterpolated ? 'Interpolado' : 'GPS'},`;
+        csv += `${train.line || ''},`;
+        csv += `${train.platform || ''},`;
+        csv += `${train.lat},`;
+        csv += `${train.lon},`;
+        csv += `${train.speed || 0},`;
+        csv += `${train.currentStatus || ''},`;
+        csv += `${train.delayMinutes || 0},`;
+        csv += `${train.isCanceled ? 'SI' : 'NO'},`;
+        csv += `${train.hasGPS === false ? 'NO' : 'SI'},`;
+        csv += `${train.isStationary ? 'SI' : 'NO'},`;
+        csv += `${train.isInterpolated ? 'SI' : 'NO'},`;
+        csv += `${train.stationName || ''},`;
+        csv += `${train.fromStation || ''},`;
+        csv += `${train.toStation || ''},`;
+        csv += `${train.progress || 0},`;
+        csv += `${train.updated}\n`;
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `renfe-snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    
+    document.getElementById('toggle-cluster').addEventListener('click', function() {
+      clusterEnabled = !clusterEnabled;
+      
+      if (clusterEnabled) {
+        markers.forEach(marker => {
+          map.removeLayer(marker);
+          clusterGroup.addLayer(marker);
+        });
+        this.innerHTML = '<i class="fas fa-layer-group"></i> Cluster Activo';
+        this.classList.add('active');
+      } else {
+        markers.forEach(marker => {
+          clusterGroup.removeLayer(marker);
+          marker.addTo(map);
+        });
+        this.innerHTML = '<i class="fas fa-layer-group"></i> Cluster Inactivo';
+        this.classList.remove('active');
+      }
+    });
+
+    map.on('zoomend', () => {
+      document.getElementById('zoom-level').textContent = map.getZoom();
+    });
+
+    console.log('🚆 Iniciando mapa de Renfe en tiempo real...');
+    console.log('📡 Webhook URL:', WEBHOOK_URL);
+    updateMap();
+  </script>
+</body>
+</html>
