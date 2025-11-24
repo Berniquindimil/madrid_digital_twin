@@ -3,7 +3,7 @@
 // ============================================
 const API_BICIMAD = 'http://localhost:5678/webhook/bicimad';
 const API_BUSES = (stopId) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bus-parada/${stopId}`;
-const API_PARADAS_CERCANAS = (lon, lat, radius) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/paradas-cercanas/${lon}/${lat}/${radius}`;
+const API_PARADAS_CERCANAS = (lon, lat, radius) => `http://localhost:5678/webhook/4afc1676-8aa6-4827-881b-53cdcf87682f/paradas-cercanas/${lon}/${lat}/${radius}`;
 const MADRID_CENTER = [40.4168, -3.7038];
 const ZOOM_LEVEL = 12;
 
@@ -15,6 +15,7 @@ let bicisData = [];
 let stopsData = {};
 let currentStopId = null;
 let markersLayer = L.layerGroup();
+let selectingNearby = false; // Flag para modo selección
 
 // ============================================
 // DARK MODE
@@ -52,6 +53,23 @@ function initMap() {
     }).addTo(map);
 
     markersLayer.addTo(map);
+    
+    // Click en el mapa para seleccionar punto de paradas cercanas
+    map.on('click', (e) => {
+        if (!selectingNearby) return;
+        
+        const { lat, lng } = e.latlng;
+        console.log('Punto seleccionado:', lat, lng);
+        selectingNearby = false;
+        
+        // Cambiar estilo del botón
+        document.getElementById('nearbyBtn').style.opacity = '1';
+        document.getElementById('nearbyBtn').textContent = '📍 Paradas Cercanas';
+        
+        // Buscar paradas cercanas
+        loadNearbyStops(lng, lat, 500);
+    });
+    
     console.log('Mapa inicializado');
 }
 
@@ -92,10 +110,18 @@ function setupEventListeners() {
             return;
         }
 
-        // Obtener centro del mapa actual
-        const center = map.getCenter();
-        console.log('Buscando paradas cercanas a:', center.lat, center.lng);
-        loadNearbyStops(center.lng, center.lat, 500);
+        // Activar modo selección
+        selectingNearby = !selectingNearby;
+        
+        if (selectingNearby) {
+            document.getElementById('nearbyBtn').style.opacity = '0.5';
+            document.getElementById('nearbyBtn').textContent = '📍 Clickea en el mapa...';
+            console.log('Modo selección activado');
+        } else {
+            document.getElementById('nearbyBtn').style.opacity = '1';
+            document.getElementById('nearbyBtn').textContent = '📍 Paradas Cercanas';
+            console.log('Modo selección desactivado');
+        }
     });
 }
 
@@ -205,25 +231,31 @@ function showStopOnMap(stopInfo) {
 }
 
 async function loadNearbyStops(lon, lat, radius) {
-    console.log('Cargando paradas cercanas a:', lat, lon);
+    console.log('Cargando paradas cercanas a:', lat, lon, 'Radio:', radius);
     
     try {
         const url = API_PARADAS_CERCANAS(lon, lat, radius);
+        console.log('URL completa:', url);
         console.log('Llamando a:', url);
         
         const response = await fetch(url);
         const data = await response.json();
-        console.log('Paradas cercanas:', data);
+        console.log('Paradas cercanas recibidas:', data);
         
         // Limpiar marcadores anteriores de paradas cercanas
         nearbyMarkersLayer.clearLayers();
         
-        if (data[0].paradas && data[0].paradas.length > 0) {
+        if (data[0] && data[0].paradas && data[0].paradas.length > 0) {
             // Mostrar paradas en el sidebar
             displayNearbyStops(data[0].paradas);
             
+            // Debuggear primera parada
+            console.log('Primera parada:', data[0].paradas[0]);
+            
             // Añadir marcadores al mapa
-            data[0].paradas.forEach(parada => {
+            data[0].paradas.forEach((parada, index) => {
+                console.log(`Parada ${index}: ${parada.name} - Lat: ${parada.latitude}, Lon: ${parada.longitude}`);
+                
                 const icon = L.divIcon({
                     className: 'nearby-marker',
                     html: `<div style="background: linear-gradient(135deg, #0072ce 0%, #0052a3 100%); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; box-shadow: 0 2px 8px rgba(0, 114, 206, 0.4); border: 2px solid rgba(255,255,255,0.3); cursor: pointer;">📍</div>`,
