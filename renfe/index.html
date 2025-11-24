@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madrid: BiciMAD + Buses</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .sidebar {
+            background: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .search-box button {
+            padding: 12px 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .search-box button:hover {
+            background: #45a049;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab-btn {
+            padding: 10px 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #999;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stops-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stop-item {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .stop-item:hover {
+            background: #f9f9f9;
+            border-color: #4CAF50;
+            transform: translateX(5px);
+        }
+
+        .stop-item h3 {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .stop-item p {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .bus-arrival {
+            padding: 10px;
+            border-left: 4px solid #4CAF50;
+            background: #f9f9f9;
+            margin-bottom: 8px;
+            border-radius: 3px;
+        }
+
+        .bus-arrival-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .bus-line {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .bus-time {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .bus-destination {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .bus-distance {
+            font-size: 10px;
+            color: #999;
+            margin-top: 3px;
+        }
+
+        .map {
+            flex: 1;
+            background: #e0e0e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .info-panel {
+            padding: 15px;
+            background: #f0f8f0;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .info-panel.active {
+            display: block;
+        }
+
+        .info-panel h2 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .info-panel p {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .lines-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .line-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .error {
+            color: #d32f2f;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state p {
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .search-hint {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="header">
+                <h1>🚌 Madrid</h1>
+                <p>BiciMAD + Buses EMT</p>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por stopId (ej: 62)..." maxlength="6">
+                <button id="searchBtn">Buscar</button>
+            </div>
+            <p class="search-hint">Ej: Escribe 62 y clica Buscar para ver buses en "Castellana-Ministerio Interior"</p>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="paradas">Paradas</button>
+                <button class="tab-btn" data-tab="bicis">BiciMAD</button>
+            </div>
+
+            <!-- TAB: PARADAS -->
+            <div id="paradas" class="tab-content active">
+                <div class="info-panel" id="stopInfoPanel">
+                    <h2 id="stopName">-</h2>
+                    <p id="stopDirection">-</p>
+                    <p style="font-size: 10px; color: #999;">StopId: <strong id="stopId">-</strong></p>
+                    <div class="lines-container" id="stopLines"></div>
+                </div>
+
+                <div id="busesContainer" class="stops-list">
+                    <div class="empty-state">
+                        <p>Escribe un stopId en la búsqueda y clica Buscar</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: BICIS -->
+            <div id="bicis" class="tab-content">
+                <div id="bicisContainer" class="stops-list">
+                    <div class="loading">Cargando estaciones BiciMAD...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAPA -->
+        <div id="map" class="map"></div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN
+        // ============================================
+        const API_BICIMAD = 'http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bicimad';
+        const API_BUSES = (stopId) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bus-parada/${stopId}`;
+        const MADRID_CENTER = [40.4168, -3.7038];
+        const ZOOM_LEVEL = 12;
+
+        // ============================================
+        // ESTADO
+        // ============================================
+        let map;
+        let bicisData = [];
+        let stopsData = {};
+        let currentStopId = null;
+        let markersLayer = L.layerGroup();
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Cargado');
+            initMap();
+            loadBiciMAD();
+            setupEventListeners();
+        });
+
+        function initMap() {
+            console.log('Inicializando mapa...');
+            map = L.map('map').setView(MADRID_CENTER, ZOOM_LEVEL);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            markersLayer.addTo(map);
+            console.log('Mapa inicializado');
+        }
+
+        function setupEventListeners() {
+            console.log('Configurando event listeners...');
+            
+            // Tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            // Search - Botón de búsqueda
+            document.getElementById('searchBtn').addEventListener('click', () => {
+                const stopId = document.getElementById('searchInput').value.trim();
+                console.log('Búsqueda por stopId:', stopId);
+                
+                if (stopId && /^\d+$/.test(stopId)) {
+                    loadBusStop(stopId);
+                    switchTab('paradas');
+                } else {
+                    alert('Por favor, escribe un número válido (stopId)');
+                }
+            });
+
+            // Enter en input
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('searchBtn').click();
+                }
+            });
+        }
+
+        // ============================================
+        // CARGAR BICIMAD
+        // ============================================
+        async function loadBiciMAD() {
+            console.log('Cargando BiciMAD...');
+            try {
+                const response = await fetch(API_BICIMAD);
+                const data = await response.json();
+                bicisData = data[0].bicis || [];
+                console.log('BiciMAD cargado:', bicisData.length, 'estaciones');
+
+                renderBicisList();
+                renderBicisMarkers();
+            } catch (error) {
+                console.error('Error cargando BiciMAD:', error);
+                document.getElementById('bicisContainer').innerHTML = 
+                    '<div class="error">Error al cargar BiciMAD</div>';
+            }
+        }
+
+        function renderBicisList() {
+            const container = document.getElementById('bicisContainer');
+            container.innerHTML = bicisData.map(bici => `
+                <div class="stop-item">
+                    <h3>🚴 ${bici.name}</h3>
+                    <p>📍 ${bici.address}</p>
+                    <p>🔋 ${bici.available_bikes} bicis | ${bici.free_bases} bases</p>
+                </div>
+            `).join('');
+        }
+
+        function renderBicisMarkers() {
+            bicisData.forEach(bici => {
+                const icon = L.divIcon({
+                    className: 'bike-marker',
+                    html: `<div style="background: #FF6B6B; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px;">🚴</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker([bici.latitude, bici.longitude], { icon })
+                    .bindPopup(`<strong>${bici.name}</strong><br>${bici.available_bikes} bicis disponibles`)
+                    .addTo(markersLayer);
+            });
+        }
+
+        // ============================================
+        // CARGAR PARADA DE BUSES
+        // ============================================
+        async function loadBusStop(stopId) {
+            console.log('Cargando parada:', stopId);
+            currentStopId = stopId;
+            const container = document.getElementById('busesContainer');
+            
+            if (stopsData[stopId]) {
+                console.log('Usando datos cacheados para stopId:', stopId);
+                renderBusStop(stopsData[stopId]);
+                return;
+            }
+
+            container.innerHTML = '<div class="loading"><span class="spinner"></span>Cargando buses para parada ' + stopId + '...</div>';
+
+            try {
+                const url = API_BUSES(stopId);
+                console.log('Llamando a:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Datos recibidos:', data);
+                
+                const busData = data[0];
+
+                // Validar que tiene datos
+                if (!busData.stop_info || !busData.stop_info.name) {
+                    container.innerHTML = '<div class="error">Parada no encontrada (stopId: ' + stopId + ')</div>';
+                    return;
+                }
+
+                stopsData[stopId] = busData;
+                renderBusStop(busData);
+                console.log('Parada cargada correctamente');
+            } catch (error) {
+                console.error('Error cargando parada:', error);
+                container.innerHTML = '<div class="error">Error al cargar la parada. Verifica que el stopId es válido.</div>';
+            }
+        }
+
+        function renderBusStop(busData) {
+            console.log('Renderizando parada:', busData.stop_info.name);
+            
+            // Panel de info
+            const infoPanel = document.getElementById('stopInfoPanel');
+            document.getElementById('stopName').textContent = busData.stop_info.name;
+            document.getElementById('stopDirection').textContent = busData.stop_info.direction;
+            document.getElementById('stopId').textContent = busData.stop_info.id;
+
+            const linesHtml = busData.bus_lines.slice(0, 8).map(line => 
+                `<span class="line-badge" style="background: #${line.color || '0072ce'}">${line.line_name}</span>`
+            ).join('');
+            document.getElementById('stopLines').innerHTML = linesHtml;
+            infoPanel.classList.add('active');
+
+            // Buses
+            const container = document.getElementById('busesContainer');
+            if (busData.arrivals.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No hay buses en tiempo real</p></div>';
+                return;
+            }
+
+            container.innerHTML = busData.arrivals.map(bus => `
+                <div class="bus-arrival">
+                    <div class="bus-arrival-header">
+                        <span class="bus-line">${bus.line}</span>
+                        <span class="bus-time">${bus.time_minutes}m</span>
+                    </div>
+                    <div class="bus-destination">→ ${bus.destination}</div>
+                    <div class="bus-distance">📍 ${bus.distance_meters}m</div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // TABS
+        // ============================================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+    </script>
+</body>
+</html>

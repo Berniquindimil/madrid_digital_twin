@@ -1,0 +1,149 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  font-family: 'Arial', sans-serif;
+}
+
+/* NAVBAR */
+.navbar {
+  background: linear-gradient(to right, #ffffff, #000000);
+  padding: 15px 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-content {
+  color: black;
+}
+
+.navbar h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.navbar p {
+  font-size: 12px;
+  color: #666;
+  margin: 5px 0 0 0;
+}
+
+/* MAPA */
+#map {
+  height: 100%;
+  width: 100%;
+  margin-top: 70px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-top: 70px;
+}
+
+/* INFO BOX */
+.info-box {
+  position: fixed;
+  top: 90px;
+  right: 10px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 900;
+  min-width: 200px;
+}
+
+.info-box h3 {
+  font-size: 14px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #3388ff;
+  padding-bottom: 5px;
+}
+
+.info-box p {
+  margin: 8px 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.info-box strong {
+  color: #333;
+  font-weight: bold;
+}
+
+/* FILTER PANEL */
+.filter-panel {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 900;
+}
+
+.filter-panel h3 {
+  font-size: 13px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #ff9800;
+  padding-bottom: 5px;
+}
+
+.filter-panel label {
+  display: block;
+  margin: 8px 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-panel input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.c1 { background-color: #FF0000; }
+.dot.c2 { background-color: #0066CC; }
+.dot.c3 { background-color: #009933; }
+.dot.c4 { background-color: #FF9900; }
+.dot.c5 { background-color: #9900FF; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .navbar h1 { font-size: 18px; }
+  .navbar p { display: none; }
+  
+  .info-box {
+    top: 80px;
+    right: 5px;
+    min-width: 150px;
+    padding: 10px;
+  }
+  
+  .filter-panel {
+    bottom: 5px;
+    right: 5px;
+    padding: 10px;
+  }
+}

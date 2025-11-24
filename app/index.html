@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madrid: BiciMAD + Buses EMT</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="logo-icon">
+                <i class="fas fa-map"></i>
+            </div>
+            <div class="navbar-title">
+                <span class="main">Madrid</span>
+                <span class="sub">Movilidad en Tiempo Real</span>
+            </div>
+        </div>
+        <ul class="navbar-menu">
+            <li><button class="nav-btn" id="toggle-dark" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button></li>
+        </ul>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="header">
+                <h1>🚌 Buses</h1>
+                <p>EMT Madrid en tiempo real</p>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por stopId..." maxlength="6">
+                <button id="searchBtn">Buscar</button>
+            </div>
+            <p class="search-hint">Ej: 62 = Castellana-Ministerio Interior</p>
+
+            <div style="padding: 0 15px 10px; display: flex; gap: 8px;">
+                <button id="nearbyBtn" style="flex: 1; padding: 10px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all var(--transition);">
+                    📍 Paradas Cercanas
+                </button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="paradas">🚌 BUSEMTMAD</button>
+                <button class="tab-btn" data-tab="bicis">🚴 BiciMAD</button>
+            </div>
+
+            <!-- TAB: PARADAS -->
+            <div id="paradas" class="tab-content active">
+                <div class="info-panel" id="stopInfoPanel">
+                    <h2 id="stopName">-</h2>
+                    <p id="stopDirection">-</p>
+                    <p style="font-size: 10px;">StopId: <strong id="stopId">-</strong></p>
+                    <div class="lines-container" id="stopLines"></div>
+                </div>
+
+                <div id="busesContainer" class="stops-list">
+                    <div class="empty-state">
+                        <p>Escribe un stopId y clica Buscar</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: BICIS -->
+            <div id="bicis" class="tab-content">
+                <div style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 208, 132, 0.05);">
+                    <h3 style="font-size: 12px; margin-bottom: 10px; color: var(--primary);">📊 Leyenda de Disponibilidad</h3>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #00d084; border-radius: 50%; box-shadow: 0 2px 8px #00d08440;"></div>
+                            <span style="font-size: 11px;">Alta disponibilidad (&gt;50%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #ffa500; border-radius: 50%; box-shadow: 0 2px 8px #ffa50040;"></div>
+                            <span style="font-size: 11px;">Media disponibilidad (20-50%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 50%; box-shadow: 0 2px 8px #ff6b6b40;"></div>
+                            <span style="font-size: 11px;">Baja disponibilidad (&lt;20%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #5a6470; border-radius: 50%; box-shadow: 0 2px 8px #5a647040;"></div>
+                            <span style="font-size: 11px;">Inactiva</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="bicisContainer" class="stops-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>Cargando BiciMAD...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAPA -->
+        <div id="map" class="map"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

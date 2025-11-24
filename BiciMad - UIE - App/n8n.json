@@ -1,0 +1,506 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/bicimad",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "webhook-main",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v1/mobilitylabs/user/login/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "passKey",
+              "value": "6A95467FE2BC0F83D0EA0C9188383A69CEDACDDF440A13FAB25691D4661E77540C1E11AABA075E82C0607EC5E276E7502EAEC57D42FBC917888554BD58B1B73A"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -150,
+        0
+      ],
+      "id": "http-login",
+      "name": "HTTP Request - Login"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/bicimad/stations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        -150
+      ],
+      "id": "http-bicimad",
+      "name": "HTTP Request - BiciMAD"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/stops/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        50
+      ],
+      "id": "http-stops",
+      "name": "HTTP Request - Bus Stops"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/lines/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        250
+      ],
+      "id": "http-lines",
+      "name": "HTTP Request - Bus Lines"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar bicis\nconst bicis = $json.nodes[1].data.map(station => ({\n  type: 'bike_station',\n  id: station.id,\n  name: station.name,\n  address: station.address,\n  latitude: station.geometry.coordinates[1],\n  longitude: station.geometry.coordinates[0],\n  available_bikes: station.dock_bikes,\n  free_bases: station.free_bases,\n  total_bases: station.total_bases,\n  is_active: station.activate === 1\n}));\n\n// Procesar paradas de bus\nconst stops = $json.nodes[2].data?.map(stop => ({\n  type: 'bus_stop',\n  id: stop.id,\n  name: stop.name,\n  address: stop.address,\n  latitude: stop.geometry.coordinates[1],\n  longitude: stop.geometry.coordinates[0],\n  lines: stop.lines || []\n})) || [];\n\n// Procesar líneas de bus\nconst lines = $json.nodes[3].data?.map(line => ({\n  type: 'bus_line',\n  id: line.id,\n  name: line.name,\n  poliline: line.poliline\n})) || [];\n\nreturn {\n  bicis: bicis,\n  stops: stops,\n  lines: lines,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        350,
+        50
+      ],
+      "id": "code-merge",
+      "name": "Code - Merge Data"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        550,
+        50
+      ],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Login": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - BiciMAD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request - Bus Stops",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request - Bus Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - BiciMAD": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Bus Stops": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Bus Lines": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "description": "Obtiene datos de BiciMAD + Buses (paradas y líneas) de EMT"
+  }
+}
+EOF
+cat /mnt/user-data/outputs/n8n-workflow-bicis-buses.json
+Output
+
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/bicimad",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "webhook-main",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v1/mobilitylabs/user/login/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "passKey",
+              "value": "6A95467FE2BC0F83D0EA0C9188383A69CEDACDDF440A13FAB25691D4661E77540C1E11AABA075E82C0607EC5E276E7502EAEC57D42FBC917888554BD58B1B73A"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -150,
+        0
+      ],
+      "id": "http-login",
+      "name": "HTTP Request - Login"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/bicimad/stations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        -150
+      ],
+      "id": "http-bicimad",
+      "name": "HTTP Request - BiciMAD"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/stops/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        50
+      ],
+      "id": "http-stops",
+      "name": "HTTP Request - Bus Stops"
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.emtmadrid.es/v2/transport/lines/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accessToken",
+              "value": "={{$json[\"data\"][0][\"accessToken\"]}}"
+            },
+            {
+              "name": "X-ClientId",
+              "value": "910c14b0-7437-4182-a6f2-54e957b15198"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        100,
+        250
+      ],
+      "id": "http-lines",
+      "name": "HTTP Request - Bus Lines"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar bicis\nconst bicis = $json.nodes[1].data.map(station => ({\n  type: 'bike_station',\n  id: station.id,\n  name: station.name,\n  address: station.address,\n  latitude: station.geometry.coordinates[1],\n  longitude: station.geometry.coordinates[0],\n  available_bikes: station.dock_bikes,\n  free_bases: station.free_bases,\n  total_bases: station.total_bases,\n  is_active: station.activate === 1\n}));\n\n// Procesar paradas de bus\nconst stops = $json.nodes[2].data?.map(stop => ({\n  type: 'bus_stop',\n  id: stop.id,\n  name: stop.name,\n  address: stop.address,\n  latitude: stop.geometry.coordinates[1],\n  longitude: stop.geometry.coordinates[0],\n  lines: stop.lines || []\n})) || [];\n\n// Procesar líneas de bus\nconst lines = $json.nodes[3].data?.map(line => ({\n  type: 'bus_line',\n  id: line.id,\n  name: line.name,\n  poliline: line.poliline\n})) || [];\n\nreturn {\n  bicis: bicis,\n  stops: stops,\n  lines: lines,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        350,
+        50
+      ],
+      "id": "code-merge",
+      "name": "Code - Merge Data"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        550,
+        50
+      ],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Login": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - BiciMAD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request - Bus Stops",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request - Bus Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - BiciMAD": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Bus Stops": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Bus Lines": {
+      "main": [
+        [
+          {
+            "node": "Code - Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "description": "Obtiene datos de BiciMAD + Buses (paradas y líneas) de EMT"
+  }
+}
