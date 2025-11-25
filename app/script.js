@@ -2,6 +2,7 @@
 // CONFIGURACIÓN
 // ============================================
 const API_BICIMAD = 'http://localhost:5678/webhook/bicimad';
+const API_PARKINGS = 'http://localhost:5678/webhook/parkings';
 const API_BUSES = (stopId) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bus-parada/${stopId}`;
 const API_PARADAS_CERCANAS = (lon, lat, radius) => `http://localhost:5678/webhook/4afc1676-8aa6-4827-881b-53cdcf87682f/paradas-cercanas/${lon}/${lat}/${radius}`;
 const MADRID_CENTER = [40.4168, -3.7038];
@@ -12,6 +13,7 @@ const ZOOM_LEVEL = 12;
 // ============================================
 let map;
 let bicisData = [];
+let parkingsData = [];
 let stopsData = {};
 let currentStopId = null;
 let markersLayer = L.layerGroup();
@@ -195,6 +197,171 @@ function renderBicisMarkers() {
             `)
             .addTo(markersLayer);
     });
+}
+
+// ============================================
+// CARGAR PARKINGS
+// ============================================
+async function loadParkings() {
+    console.log('Cargando parkings...');
+    try {
+        const response = await fetch(API_PARKINGS);
+        const data = await response.json();
+        parkingsData = data[0]?.data || [];
+        console.log('Parkings cargados:', parkingsData.length, 'parkings');
+
+        renderParkingsList();
+        renderParkingsMarkers();
+    } catch (error) {
+        console.error('Error cargando parkings:', error);
+        document.getElementById('parkingsContainer').innerHTML = 
+            '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar parkings</div>';
+    }
+}
+
+function clearParkingsMarkers() {
+    console.log('Limpiando marcadores de parkings...');
+    markersLayer.clearLayers();
+}
+
+function renderParkingsList() {
+    const container = document.getElementById('parkingsContainer');
+    
+    // Filtrar parkings con datos válidos
+    const parkingsConDatos = parkingsData.filter(p => p.freeParking !== null && typeof p.freeParking === 'number');
+    const parkingsSinDatos = parkingsData.filter(p => p.freeParking === null || typeof p.freeParking !== 'number');
+    
+    let html = '';
+    
+    // Mostrar primero los parkings con datos
+    if (parkingsConDatos.length > 0) {
+        html += parkingsConDatos.map(parking => {
+            const color = getParkingAvailabilityColor(parking);
+            const label = getParkingAvailabilityLabel(parking);
+            
+            return `
+                <div class="stop-item" style="border-left: 4px solid ${color};">
+                    <h3>🅿️ ${parking.name}</h3>
+                    <p>📍 ${parking.address || 'Dirección no disponible'}</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                        <span style="font-size: 11px; color: var(--text-secondary);">
+                            <i class="fas fa-car"></i> ${parking.freeParking} plazas libres
+                        </span>
+                        <span style="font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; background: ${color}20; color: ${color};">
+                            ${label}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Luego los parkings sin datos (al final)
+    if (parkingsSinDatos.length > 0) {
+        html += `<div style="padding: 10px 15px; background: var(--surface-light); border-bottom: 1px solid var(--border);"><h4 style="font-size: 11px; color: var(--text-secondary); margin: 0;">Sin datos en tiempo real (${parkingsSinDatos.length})</h4></div>`;
+        html += parkingsSinDatos.map(parking => {
+            return `
+                <div class="stop-item" style="border-left: 4px solid #5a6470; opacity: 0.6;">
+                    <h3>🅿️ ${parking.name}</h3>
+                    <p>📍 ${parking.address || 'Dirección no disponible'}</p>
+                    <div style="margin-top: 8px;">
+                        <span style="font-size: 11px; color: var(--text-secondary); font-style: italic;">
+                            ℹ️ Sin datos de disponibilidad
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    container.innerHTML = html || '<div class="empty-state"><p>No hay parkings disponibles</p></div>';
+}
+
+function renderParkingsMarkers() {
+    parkingsData.forEach(parking => {
+        // Verificar si tiene datos válidos
+        const tieneDatos = parking.freeParking !== null && typeof parking.freeParking === 'number';
+        
+        // Convertir coordenadas a números (pueden venir como strings)
+        const lat = parseFloat(parking.geometry.coordinates[1]);
+        const lon = parseFloat(parking.geometry.coordinates[0]);
+        
+        // Validar coordenadas
+        if (isNaN(lat) || isNaN(lon)) {
+            console.warn(`Coordenadas inválidas para parking: ${parking.name}`);
+            return;
+        }
+        
+        let icon, popupContent;
+        
+        if (tieneDatos) {
+            // Parking con datos en tiempo real
+            const color = getParkingAvailabilityColor(parking);
+            const label = getParkingAvailabilityLabel(parking);
+            
+            icon = L.divIcon({
+                className: 'parking-marker',
+                html: `<div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; box-shadow: 0 2px 8px ${color}40; border: 2px solid rgba(255,255,255,0.3);">🅿️</div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+            });
+            
+            popupContent = `
+                <strong>${parking.name}</strong><br>
+                🅿️ ${parking.freeParking} plazas libres<br>
+                📍 ${parking.address || 'Dirección no disponible'}<br>
+                <span style="font-size: 11px; color: ${color}; font-weight: 600;">${label}</span>
+            `;
+        } else {
+            // Parking sin datos en tiempo real
+            icon = L.divIcon({
+                className: 'parking-marker-no-data',
+                html: `<div style="background: linear-gradient(135deg, #5a6470 0%, #444d57 100%); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; box-shadow: 0 2px 8px rgba(90,100,112,0.4); border: 2px solid rgba(255,255,255,0.2); opacity: 0.7;">🅿️</div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+            
+            popupContent = `
+                <strong>${parking.name}</strong><br>
+                📍 ${parking.address || 'Dirección no disponible'}<br>
+                <span style="font-size: 11px; color: #5a6470; font-style: italic;">ℹ️ Sin datos en tiempo real</span>
+            `;
+        }
+
+        L.marker([lat, lon], { icon })
+            .bindPopup(popupContent)
+            .addTo(markersLayer);
+    });
+}
+
+function getParkingAvailabilityColor(parking) {
+    // Si no hay datos, retornar gris
+    if (parking.freeParking === null || typeof parking.freeParking !== 'number') {
+        return '#5a6470';
+    }
+    
+    const plazasLibres = parking.freeParking;
+    
+    // Rangos basados en número absoluto de plazas libres
+    if (plazasLibres >= 100) return '#00d084'; // Verde - muchas plazas
+    if (plazasLibres >= 50) return '#ffa500';  // Naranja - disponibilidad media
+    if (plazasLibres > 0) return '#ff6b6b';    // Rojo - pocas plazas
+    return '#5a6470'; // Gris - completo
+}
+
+function getParkingAvailabilityLabel(parking) {
+    // Si no hay datos
+    if (parking.freeParking === null || typeof parking.freeParking !== 'number') {
+        return 'Sin datos';
+    }
+    
+    const plazasLibres = parking.freeParking;
+    
+    // Etiquetas basadas en número absoluto de plazas libres
+    if (plazasLibres >= 100) return 'Muchas plazas';
+    if (plazasLibres >= 50) return 'Disponible';
+    if (plazasLibres > 0) return 'Pocas plazas';
+    return 'Completo';
 }
 
 // ============================================
@@ -432,8 +599,24 @@ function switchTab(tabName) {
         loadBiciMAD();
     }
     
-    // Limpiar bicis al volver a BUSEMTMAD
+    // Cargar Parkings solo cuando se selecciona la pestaña
+    if (tabName === 'parkings' && parkingsData.length === 0) {
+        loadParkings();
+    }
+    
+    // Limpiar marcadores al cambiar de pestaña
     if (tabName === 'paradas') {
         clearBicisMarkers();
+        clearParkingsMarkers();
+    }
+    
+    if (tabName === 'bicis') {
+        clearParkingsMarkers();
+        nearbyMarkersLayer.clearLayers();
+    }
+    
+    if (tabName === 'parkings') {
+        clearBicisMarkers();
+        nearbyMarkersLayer.clearLayers();
     }
 }

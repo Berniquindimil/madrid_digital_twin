@@ -60,6 +60,7 @@
             <div class="tabs">
                 <button class="tab-btn active" data-tab="paradas">🚌 BUSEMTMAD</button>
                 <button class="tab-btn" data-tab="bicis">🚴 BiciMAD</button>
+                <button class="tab-btn" data-tab="parkings">🅿️ PARKINGS</button>
             </div>
 
             <!-- TAB: PARADAS -->
@@ -105,6 +106,37 @@
                     <div class="loading">
                         <div class="spinner"></div>
                         <span>Cargando BiciMAD...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: PARKINGS -->
+            <div id="parkings" class="tab-content">
+                <div style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 208, 132, 0.05);">
+                    <h3 style="font-size: 12px; margin-bottom: 10px; color: var(--primary);">📊 Leyenda de Disponibilidad</h3>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #00d084; border-radius: 50%; box-shadow: 0 2px 8px #00d08440;"></div>
+                            <span style="font-size: 11px;">Muchas plazas (≥100)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #ffa500; border-radius: 50%; box-shadow: 0 2px 8px #ffa50040;"></div>
+                            <span style="font-size: 11px;">Disponible (50-99 plazas)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 50%; box-shadow: 0 2px 8px #ff6b6b40;"></div>
+                            <span style="font-size: 11px;">Pocas plazas (&lt;50)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; background: #5a6470; border-radius: 50%; box-shadow: 0 2px 8px #5a647040;"></div>
+                            <span style="font-size: 11px;">Completo o sin datos</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="parkingsContainer" class="stops-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>Cargando parkings...</span>
                     </div>
                 </div>
             </div>
