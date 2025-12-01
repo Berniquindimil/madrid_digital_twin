@@ -147,11 +147,6 @@ async function loadBiciMAD() {
     }
 }
 
-function clearBicisMarkers() {
-    console.log('Limpiando marcadores de bicis...');
-    markersLayer.clearLayers();
-}
-
 function renderBicisList() {
     const container = document.getElementById('bicisContainer');
     container.innerHTML = bicisData.map(bici => {
@@ -217,11 +212,6 @@ async function loadParkings() {
         document.getElementById('parkingsContainer').innerHTML = 
             '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar parkings</div>';
     }
-}
-
-function clearParkingsMarkers() {
-    console.log('Limpiando marcadores de parkings...');
-    markersLayer.clearLayers();
 }
 
 function renderParkingsList() {
@@ -594,29 +584,35 @@ function switchTab(tabName) {
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(tabName).classList.add('active');
 
-    // Cargar BiciMAD solo cuando se selecciona la pestaña
-    if (tabName === 'bicis' && bicisData.length === 0) {
-        loadBiciMAD();
-    }
-    
-    // Cargar Parkings solo cuando se selecciona la pestaña
-    if (tabName === 'parkings' && parkingsData.length === 0) {
-        loadParkings();
-    }
-    
-    // Limpiar marcadores al cambiar de pestaña
-    if (tabName === 'paradas') {
-        clearBicisMarkers();
-        clearParkingsMarkers();
-    }
-    
+    // Limpiar todos los marcadores antes de mostrar los correspondientes
+    markersLayer.clearLayers();
+    nearbyMarkersLayer.clearLayers();
+
+    // Mostrar/cargar según la pestaña activa
     if (tabName === 'bicis') {
-        clearParkingsMarkers();
-        nearbyMarkersLayer.clearLayers();
+        // Cargar BiciMAD solo si no se han cargado antes
+        if (bicisData.length === 0) {
+            loadBiciMAD();
+        } else {
+            // Si ya están cargados, simplemente mostrar los marcadores
+            renderBicisMarkers();
+        }
     }
-    
+
     if (tabName === 'parkings') {
-        clearBicisMarkers();
-        nearbyMarkersLayer.clearLayers();
+        // Cargar Parkings solo si no se han cargado antes
+        if (parkingsData.length === 0) {
+            loadParkings();
+        } else {
+            // Si ya están cargados, simplemente mostrar los marcadores
+            renderParkingsMarkers();
+        }
+    }
+
+    if (tabName === 'paradas') {
+        // Si hay una parada seleccionada actualmente, mostrarla de nuevo
+        if (currentStopId && stopsData[currentStopId]) {
+            showStopOnMap(stopsData[currentStopId].stop_info);
+        }
     }
 }
