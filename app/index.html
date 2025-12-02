@@ -41,26 +41,57 @@
         <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="header">
-                <h1>🚌 Buses</h1>
-                <p>EMT Madrid en tiempo real</p>
+                <h1 id="sidebarTitle">🚌 Buses</h1>
+                <p id="sidebarSubtitle">EMT Madrid en tiempo real</p>
             </div>
 
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Buscar por stopId..." maxlength="6">
-                <button id="searchBtn">Buscar</button>
+            <!-- Panel de clima y recomendación -->
+            <div id="weatherPanel" style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 208, 132, 0.05); display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="font-size: 14px; margin: 0; color: var(--primary);">☁️ Clima en Madrid</h3>
+                    <div id="weatherTemp" style="font-size: 20px; font-weight: bold;"></div>
+                </div>
+                <div id="weatherDescription" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;"></div>
+                <div id="weatherRecommendation" style="padding: 10px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
             </div>
-            <p class="search-hint">Ej: 62 = Castellana-Ministerio Interior</p>
 
-            <div style="padding: 0 15px 10px; display: flex; gap: 8px;">
-                <button id="nearbyBtn" style="flex: 1; padding: 10px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all var(--transition);">
-                    📍 Paradas Cercanas
-                </button>
+            <!-- Búsqueda de paradas (solo visible en tab de buses) -->
+            <div id="busSearchSection" style="display: block;">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Buscar por stopId..." maxlength="6">
+                    <button id="searchBtn">Buscar</button>
+                </div>
+                <p class="search-hint">Ej: 62 = Castellana-Ministerio Interior</p>
+
+                <div style="padding: 0 15px 10px; display: flex; gap: 8px;">
+                    <button id="nearbyBtn" style="flex: 1; padding: 10px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all var(--transition);">
+                        📍 Paradas Cercanas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel de rutas (visible en todos los tabs) -->
+            <div id="routePanel" style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 114, 206, 0.05); display: none;">
+                <h3 style="font-size: 12px; margin-bottom: 10px; color: #0072ce;">🗺️ Calcular Ruta</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button id="selectOriginBtn" style="padding: 8px; background: #0072ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+                        📍 Seleccionar Origen
+                    </button>
+                    <button id="selectDestinationBtn" style="padding: 8px; background: #0072ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+                        🎯 Seleccionar Destino
+                    </button>
+                    <button id="calculateRouteBtn" style="padding: 8px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; display: none;">
+                        ✨ Calcular Ruta Óptima
+                    </button>
+                    <div id="routeInfo" style="font-size: 10px; color: var(--text-secondary); margin-top: 5px;"></div>
+                </div>
             </div>
 
             <div class="tabs">
                 <button class="tab-btn active" data-tab="paradas">🚌 BUSEMTMAD</button>
                 <button class="tab-btn" data-tab="bicis">🚴 BiciMAD</button>
                 <button class="tab-btn" data-tab="parkings">🅿️ PARKINGS</button>
+                <button class="tab-btn" data-tab="clima">🌤️ CLIMA</button>
             </div>
 
             <!-- TAB: PARADAS -->
@@ -137,6 +168,25 @@
                     <div class="loading">
                         <div class="spinner"></div>
                         <span>Cargando parkings...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: CLIMA -->
+            <div id="clima" class="tab-content">
+                <div style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(255, 165, 0, 0.05);">
+                    <h3 style="font-size: 12px; margin-bottom: 10px; color: #ffa500;">🗺️ Consultar Clima por Zona</h3>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Haz clic en cualquier punto del mapa para ver el clima de esa zona.</p>
+                    <div style="padding: 8px; background: rgba(255, 165, 0, 0.1); border-radius: 6px; border-left: 3px solid #ffa500;">
+                        <p style="font-size: 10px; color: var(--text-secondary); margin: 0;">
+                            💡 <strong>Tip:</strong> La temperatura puede variar según la altitud y distancia del centro.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="climaInfo" style="padding: 15px;">
+                    <div class="empty-state">
+                        <p style="font-size: 12px;">👆 Haz clic en el mapa para consultar el clima</p>
                     </div>
                 </div>
             </div>

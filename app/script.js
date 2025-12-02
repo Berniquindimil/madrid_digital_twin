@@ -2,9 +2,14 @@
 // CONFIGURACIÓN
 // ============================================
 const API_BICIMAD = 'http://localhost:5678/webhook/bicimad';
-const API_PARKINGS = 'http://localhost:5678/webhook/parkings';
+const API_PARKINGS = 'http://localhost:5678/webhook-test/parkings';
 const API_BUSES = (stopId) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bus-parada/${stopId}`;
 const API_PARADAS_CERCANAS = (lon, lat, radius) => `http://localhost:5678/webhook/4afc1676-8aa6-4827-881b-53cdcf87682f/paradas-cercanas/${lon}/${lat}/${radius}`;
+
+// Meteoblue API Configuration
+// Usa la API basic weather (free tier) o current conditions
+const API_WEATHER = 'http://localhost:5678/webhook/clima-madrid';
+
 const MADRID_CENTER = [40.4168, -3.7038];
 const ZOOM_LEVEL = 12;
 
@@ -17,7 +22,17 @@ let parkingsData = [];
 let stopsData = {};
 let currentStopId = null;
 let markersLayer = L.layerGroup();
+let bicisMarkersLayer = L.layerGroup(); // Capa separada para bicis
+let parkingsMarkersLayer = L.layerGroup(); // Capa separada para parkings
 let selectingNearby = false; // Flag para modo selección
+let weatherData = null;
+let routeOrigin = null;
+let routeDestination = null;
+let selectingOrigin = false;
+let selectingDestination = false;
+let routeLayer = L.layerGroup();
+let selectingWeather = false; // Flag para modo selección de clima
+let weatherMarkersLayer = L.layerGroup(); // Capa para marcadores de clima
 
 // ============================================
 // DARK MODE
@@ -42,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Cargado');
     initDarkMode();
     initMap();
-    // NO cargar BiciMAD al inicio
+    loadWeather(); // Cargar clima al inicio
     setupEventListeners();
 });
 
@@ -55,76 +70,170 @@ function initMap() {
     }).addTo(map);
 
     markersLayer.addTo(map);
-    
-    // Click en el mapa para seleccionar punto de paradas cercanas
+    bicisMarkersLayer.addTo(map);
+    parkingsMarkersLayer.addTo(map);
+    routeLayer.addTo(map);
+    weatherMarkersLayer.addTo(map);
+
+    // Click en el mapa para seleccionar punto de paradas cercanas o rutas
     map.on('click', (e) => {
-        if (!selectingNearby) return;
-        
         const { lat, lng } = e.latlng;
-        console.log('Punto seleccionado:', lat, lng);
-        selectingNearby = false;
-        
-        // Cambiar estilo del botón
-        document.getElementById('nearbyBtn').style.opacity = '1';
-        document.getElementById('nearbyBtn').textContent = '📍 Paradas Cercanas';
-        
-        // Buscar paradas cercanas
-        loadNearbyStops(lng, lat, 500);
+
+        // Modo selección de clima
+        if (selectingWeather) {
+            console.log('Consultando clima en:', lat, lng);
+            showWeatherAtLocation(lat, lng);
+            return;
+        }
+
+        // Modo selección de paradas cercanas
+        if (selectingNearby) {
+            console.log('Punto seleccionado para paradas cercanas:', lat, lng);
+            selectingNearby = false;
+
+            // Cambiar estilo del botón
+            document.getElementById('nearbyBtn').style.opacity = '1';
+            document.getElementById('nearbyBtn').textContent = '📍 Paradas Cercanas';
+
+            // Buscar paradas cercanas
+            loadNearbyStops(lng, lat, 500);
+            return;
+        }
+
+        // Modo selección de origen para ruta
+        if (selectingOrigin) {
+            console.log('Origen seleccionado:', lat, lng);
+            routeOrigin = { lat, lng };
+            selectingOrigin = false;
+
+            document.getElementById('selectOriginBtn').style.background = '#00d084';
+            document.getElementById('selectOriginBtn').textContent = '✓ Origen Seleccionado';
+            document.getElementById('routeInfo').textContent = `Origen: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+            // Añadir marcador de origen
+            addRouteMarker(lat, lng, '📍', '#00d084');
+
+            checkRouteReady();
+            return;
+        }
+
+        // Modo selección de destino para ruta
+        if (selectingDestination) {
+            console.log('Destino seleccionado:', lat, lng);
+            routeDestination = { lat, lng };
+            selectingDestination = false;
+
+            document.getElementById('selectDestinationBtn').style.background = '#00d084';
+            document.getElementById('selectDestinationBtn').textContent = '✓ Destino Seleccionado';
+            document.getElementById('routeInfo').textContent += `\nDestino: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+            // Añadir marcador de destino
+            addRouteMarker(lat, lng, '🎯', '#ff6b6b');
+
+            checkRouteReady();
+            return;
+        }
     });
-    
+
     console.log('Mapa inicializado');
 }
 
 function setupEventListeners() {
     console.log('Configurando event listeners...');
-    
+
     // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-    });
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    if (tabButtons.length > 0) {
+        tabButtons.forEach(btn => {
+            if (btn) {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            }
+        });
+    }
 
     // Search
-    document.getElementById('searchBtn').addEventListener('click', () => {
-        const stopId = document.getElementById('searchInput').value.trim();
-        console.log('Búsqueda por stopId:', stopId);
-        
-        if (stopId && /^\d+$/.test(stopId)) {
-            loadBusStop(stopId);
-            switchTab('paradas');
-        } else {
-            alert('Por favor, escribe un número válido (stopId)');
-        }
-    });
+    const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
+
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            const stopId = searchInput ? searchInput.value.trim() : '';
+            console.log('Búsqueda por stopId:', stopId);
+
+            if (stopId && /^\d+$/.test(stopId)) {
+                loadBusStop(stopId);
+                switchTab('paradas');
+            } else {
+                alert('Por favor, escribe un número válido (stopId)');
+            }
+        });
+    }
 
     // Enter en input
-    document.getElementById('searchInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('searchBtn').click();
-        }
-    });
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && searchBtn) {
+                searchBtn.click();
+            }
+        });
+    }
 
     // Botón de paradas cercanas
-    document.getElementById('nearbyBtn').addEventListener('click', () => {
-        const isParadasTabActive = document.querySelector('[data-tab="paradas"]').classList.contains('active');
-        
-        if (!isParadasTabActive) {
-            alert('Por favor, ve a la pestaña BUSEMTMAD primero');
-            return;
-        }
+    const nearbyBtn = document.getElementById('nearbyBtn');
+    if (nearbyBtn) {
+        nearbyBtn.addEventListener('click', () => {
+            const paradasTab = document.querySelector('[data-tab="paradas"]');
+            const isParadasTabActive = paradasTab ? paradasTab.classList.contains('active') : false;
 
-        // Activar modo selección
-        selectingNearby = !selectingNearby;
-        
-        if (selectingNearby) {
-            document.getElementById('nearbyBtn').style.opacity = '0.5';
-            document.getElementById('nearbyBtn').textContent = '📍 Clickea en el mapa...';
-            console.log('Modo selección activado');
-        } else {
-            document.getElementById('nearbyBtn').style.opacity = '1';
-            document.getElementById('nearbyBtn').textContent = '📍 Paradas Cercanas';
-            console.log('Modo selección desactivado');
-        }
-    });
+            if (!isParadasTabActive) {
+                alert('Por favor, ve a la pestaña BUSEMTMAD primero');
+                return;
+            }
+
+            // Activar modo selección
+            selectingNearby = !selectingNearby;
+
+            if (selectingNearby) {
+                nearbyBtn.style.opacity = '0.5';
+                nearbyBtn.textContent = '📍 Clickea en el mapa...';
+                console.log('Modo selección activado');
+            } else {
+                nearbyBtn.style.opacity = '1';
+                nearbyBtn.textContent = '📍 Paradas Cercanas';
+                console.log('Modo selección desactivado');
+            }
+        });
+    }
+
+    // Botones de rutas
+    const selectOriginBtn = document.getElementById('selectOriginBtn');
+    if (selectOriginBtn) {
+        selectOriginBtn.addEventListener('click', () => {
+            selectingOrigin = true;
+            selectingDestination = false;
+            selectOriginBtn.style.opacity = '0.5';
+            selectOriginBtn.textContent = '📍 Clickea en el mapa...';
+        });
+    }
+
+    const selectDestinationBtn = document.getElementById('selectDestinationBtn');
+    if (selectDestinationBtn) {
+        selectDestinationBtn.addEventListener('click', () => {
+            selectingDestination = true;
+            selectingOrigin = false;
+            selectDestinationBtn.style.opacity = '0.5';
+            selectDestinationBtn.textContent = '🎯 Clickea en el mapa...';
+        });
+    }
+
+    const calculateRouteBtn = document.getElementById('calculateRouteBtn');
+    if (calculateRouteBtn) {
+        calculateRouteBtn.addEventListener('click', () => {
+            if (routeOrigin && routeDestination) {
+                calculateOptimalRoute();
+            }
+        });
+    }
 }
 
 // ============================================
@@ -144,6 +253,18 @@ async function loadBiciMAD() {
         console.error('Error cargando BiciMAD:', error);
         document.getElementById('bicisContainer').innerHTML = 
             '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar BiciMAD</div>';
+    }
+}
+
+function clearBicisMarkers() {
+    console.log('Ocultando marcadores de bicis...');
+    map.removeLayer(bicisMarkersLayer);
+}
+
+function showBicisMarkers() {
+    console.log('Mostrando marcadores de bicis...');
+    if (!map.hasLayer(bicisMarkersLayer)) {
+        map.addLayer(bicisMarkersLayer);
     }
 }
 
@@ -172,10 +293,13 @@ function renderBicisList() {
 }
 
 function renderBicisMarkers() {
+    // Limpiar marcadores previos de bicis
+    bicisMarkersLayer.clearLayers();
+
     bicisData.forEach(bici => {
         const color = getAvailabilityColor(bici);
         const availability = (bici.available_bikes / bici.total_bases) * 100;
-        
+
         const icon = L.divIcon({
             className: 'bike-marker',
             html: `<div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; box-shadow: 0 2px 8px ${color}40; border: 2px solid rgba(255,255,255,0.3);">🚴</div>`,
@@ -190,7 +314,7 @@ function renderBicisMarkers() {
                 📍 ${bici.address}<br>
                 <span style="font-size: 11px; color: ${color}; font-weight: 600;">${getAvailabilityLabel(bici)}</span>
             `)
-            .addTo(markersLayer);
+            .addTo(bicisMarkersLayer);
     });
 }
 
@@ -211,6 +335,18 @@ async function loadParkings() {
         console.error('Error cargando parkings:', error);
         document.getElementById('parkingsContainer').innerHTML = 
             '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar parkings</div>';
+    }
+}
+
+function clearParkingsMarkers() {
+    console.log('Ocultando marcadores de parkings...');
+    map.removeLayer(parkingsMarkersLayer);
+}
+
+function showParkingsMarkers() {
+    console.log('Mostrando marcadores de parkings...');
+    if (!map.hasLayer(parkingsMarkersLayer)) {
+        map.addLayer(parkingsMarkersLayer);
     }
 }
 
@@ -268,34 +404,37 @@ function renderParkingsList() {
 }
 
 function renderParkingsMarkers() {
+    // Limpiar marcadores previos de parkings
+    parkingsMarkersLayer.clearLayers();
+
     parkingsData.forEach(parking => {
         // Verificar si tiene datos válidos
         const tieneDatos = parking.freeParking !== null && typeof parking.freeParking === 'number';
-        
+
         // Convertir coordenadas a números (pueden venir como strings)
         const lat = parseFloat(parking.geometry.coordinates[1]);
         const lon = parseFloat(parking.geometry.coordinates[0]);
-        
+
         // Validar coordenadas
         if (isNaN(lat) || isNaN(lon)) {
             console.warn(`Coordenadas inválidas para parking: ${parking.name}`);
             return;
         }
-        
+
         let icon, popupContent;
-        
+
         if (tieneDatos) {
             // Parking con datos en tiempo real
             const color = getParkingAvailabilityColor(parking);
             const label = getParkingAvailabilityLabel(parking);
-            
+
             icon = L.divIcon({
                 className: 'parking-marker',
                 html: `<div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; box-shadow: 0 2px 8px ${color}40; border: 2px solid rgba(255,255,255,0.3);">🅿️</div>`,
                 iconSize: [36, 36],
                 iconAnchor: [18, 18]
             });
-            
+
             popupContent = `
                 <strong>${parking.name}</strong><br>
                 🅿️ ${parking.freeParking} plazas libres<br>
@@ -310,7 +449,7 @@ function renderParkingsMarkers() {
                 iconSize: [32, 32],
                 iconAnchor: [16, 16]
             });
-            
+
             popupContent = `
                 <strong>${parking.name}</strong><br>
                 📍 ${parking.address || 'Dirección no disponible'}<br>
@@ -320,7 +459,7 @@ function renderParkingsMarkers() {
 
         L.marker([lat, lon], { icon })
             .bindPopup(popupContent)
-            .addTo(markersLayer);
+            .addTo(parkingsMarkersLayer);
     });
 }
 
@@ -584,35 +723,529 @@ function switchTab(tabName) {
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(tabName).classList.add('active');
 
-    // Limpiar todos los marcadores antes de mostrar los correspondientes
-    markersLayer.clearLayers();
-    nearbyMarkersLayer.clearLayers();
+    // Actualizar título y mostrar/ocultar secciones según el tab
+    const busSearchSection = document.getElementById('busSearchSection');
+    const routePanel = document.getElementById('routePanel');
+    const sidebarTitle = document.getElementById('sidebarTitle');
+    const sidebarSubtitle = document.getElementById('sidebarSubtitle');
 
-    // Mostrar/cargar según la pestaña activa
+    if (tabName === 'paradas') {
+        busSearchSection.style.display = 'block';
+        routePanel.style.display = 'block';
+        sidebarTitle.textContent = '🚌 Buses';
+        sidebarSubtitle.textContent = 'EMT Madrid en tiempo real';
+        selectingWeather = false;
+    } else if (tabName === 'bicis') {
+        busSearchSection.style.display = 'none';
+        routePanel.style.display = 'block';
+        sidebarTitle.textContent = '🚴 BiciMAD';
+        sidebarSubtitle.textContent = 'Estaciones en tiempo real';
+        selectingWeather = false;
+    } else if (tabName === 'parkings') {
+        busSearchSection.style.display = 'none';
+        routePanel.style.display = 'block';
+        sidebarTitle.textContent = '🅿️ Parkings';
+        sidebarSubtitle.textContent = 'Disponibilidad en tiempo real';
+        selectingWeather = false;
+    } else if (tabName === 'clima') {
+        busSearchSection.style.display = 'none';
+        routePanel.style.display = 'none';
+        sidebarTitle.textContent = '🌤️ Clima';
+        sidebarSubtitle.textContent = 'Información meteorológica';
+        selectingWeather = true;
+    }
+
+    // Cargar BiciMAD solo cuando se selecciona la pestaña
+    if (tabName === 'bicis' && bicisData.length === 0) {
+        loadBiciMAD();
+    }
+
+    // Cargar Parkings solo cuando se selecciona la pestaña
+    if (tabName === 'parkings' && parkingsData.length === 0) {
+        loadParkings();
+    }
+
+    // Limpiar marcadores al cambiar de pestaña
+    if (tabName === 'paradas') {
+        clearBicisMarkers();
+        clearParkingsMarkers();
+        map.removeLayer(weatherMarkersLayer);
+    }
+
     if (tabName === 'bicis') {
-        // Cargar BiciMAD solo si no se han cargado antes
-        if (bicisData.length === 0) {
-            loadBiciMAD();
-        } else {
-            // Si ya están cargados, simplemente mostrar los marcadores
-            renderBicisMarkers();
+        clearParkingsMarkers();
+        nearbyMarkersLayer.clearLayers();
+        map.removeLayer(weatherMarkersLayer);
+        // Mostrar marcadores de bicis si ya están cargados
+        if (bicisData.length > 0) {
+            showBicisMarkers();
         }
     }
 
     if (tabName === 'parkings') {
-        // Cargar Parkings solo si no se han cargado antes
-        if (parkingsData.length === 0) {
-            loadParkings();
-        } else {
-            // Si ya están cargados, simplemente mostrar los marcadores
-            renderParkingsMarkers();
+        clearBicisMarkers();
+        nearbyMarkersLayer.clearLayers();
+        map.removeLayer(weatherMarkersLayer);
+        // Mostrar marcadores de parkings si ya están cargados
+        if (parkingsData.length > 0) {
+            showParkingsMarkers();
         }
     }
 
-    if (tabName === 'paradas') {
-        // Si hay una parada seleccionada actualmente, mostrarla de nuevo
-        if (currentStopId && stopsData[currentStopId]) {
-            showStopOnMap(stopsData[currentStopId].stop_info);
+    if (tabName === 'clima') {
+        clearBicisMarkers();
+        clearParkingsMarkers();
+        nearbyMarkersLayer.clearLayers();
+        // Mostrar marcadores de clima
+        if (!map.hasLayer(weatherMarkersLayer)) {
+            map.addLayer(weatherMarkersLayer);
         }
     }
+}
+
+// ============================================
+// CLIMA Y RECOMENDACIONES
+// ============================================
+async function loadWeather() {
+    console.log('Cargando clima desde Meteoblue...');
+    try {
+        const response = await fetch(API_WEATHER);
+        const data = await response.json();
+        console.log('Datos crudos de Meteoblue:', data);
+
+        // Convertir datos de Meteoblue al formato interno
+        weatherData = convertMeteoblueData(data);
+        console.log('Clima cargado:', weatherData);
+
+        displayWeather();
+    } catch (error) {
+        console.error('Error cargando clima:', error);
+        console.log('Usando datos de clima simulados para demostración');
+        // Datos simulados para demostración si la API falla
+        weatherData = {
+            main: { temp: 18 },
+            weather: [{ description: 'cielo claro', main: 'Clear' }],
+            wind: { speed: 3.5 },
+            rain: null
+        };
+        displayWeather();
+    }
+}
+
+function convertMeteoblueData(meteoblueData) {
+    // Meteoblue devuelve arrays con datos por hora
+    // Tomamos el primer valor (hora actual)
+    const currentTemp = meteoblueData.data_1h?.temperature?.[0] || 18;
+    const currentWindSpeed = meteoblueData.data_1h?.windspeed?.[0] || 0;
+    const currentPrecipitation = meteoblueData.data_1h?.precipitation?.[0] || 0;
+    const pictocode = meteoblueData.data_1h?.pictocode?.[0] || 1;
+
+    // Convertir pictocode a descripción del clima
+    const weatherDescription = getWeatherDescription(pictocode);
+    const weatherMain = getWeatherMain(pictocode);
+
+    // Convertir windspeed de km/h a m/s (Meteoblue usa km/h)
+    const windSpeedMs = currentWindSpeed / 3.6;
+
+    return {
+        main: {
+            temp: currentTemp
+        },
+        weather: [{
+            description: weatherDescription,
+            main: weatherMain
+        }],
+        wind: {
+            speed: windSpeedMs
+        },
+        rain: currentPrecipitation > 0 ? { '1h': currentPrecipitation } : null
+    };
+}
+
+function getWeatherDescription(pictocode) {
+    // Meteoblue pictocodes: https://content.meteoblue.com/en/help/standards/symbols-and-pictograms
+    const descriptions = {
+        1: 'despejado',
+        2: 'parcialmente nublado',
+        3: 'nublado',
+        4: 'muy nublado',
+        5: 'lluvia ligera',
+        6: 'lluvia moderada',
+        7: 'lluvia intensa',
+        8: 'tormenta',
+        9: 'nieve ligera',
+        10: 'nieve moderada',
+        11: 'nieve intensa',
+        12: 'niebla',
+        13: 'lluvia y nieve',
+        14: 'tormenta con lluvia',
+        15: 'tormenta con nieve'
+    };
+    return descriptions[pictocode] || 'despejado';
+}
+
+function getWeatherMain(pictocode) {
+    // Categorías principales basadas en pictocode
+    if (pictocode <= 2) return 'Clear';
+    if (pictocode <= 4) return 'Clouds';
+    if (pictocode >= 5 && pictocode <= 7) return 'Rain';
+    if (pictocode === 8 || pictocode === 14) return 'Thunderstorm';
+    if (pictocode >= 9 && pictocode <= 11) return 'Snow';
+    if (pictocode === 12) return 'Fog';
+    return 'Clear';
+}
+
+function displayWeather() {
+    const weatherPanel = document.getElementById('weatherPanel');
+    const weatherTemp = document.getElementById('weatherTemp');
+    const weatherDescription = document.getElementById('weatherDescription');
+    const weatherRecommendation = document.getElementById('weatherRecommendation');
+
+    weatherPanel.style.display = 'block';
+    weatherTemp.textContent = `${Math.round(weatherData.main.temp)}°C`;
+    weatherDescription.textContent = weatherData.weather[0].description;
+
+    // Generar recomendación
+    const recommendation = getTransportRecommendation(weatherData);
+    weatherRecommendation.innerHTML = recommendation.html;
+    weatherRecommendation.style.background = recommendation.color;
+    weatherRecommendation.style.color = recommendation.textColor;
+}
+
+function getTransportRecommendation(weather) {
+    const temp = weather.main.temp;
+    const windSpeed = weather.wind.speed;
+    const isRaining = weather.rain !== null && weather.rain !== undefined;
+    const weatherMain = weather.weather[0].main.toLowerCase();
+
+    // Condiciones extremas - recomendar bus
+    if (isRaining || temp < 5 || temp > 35 || windSpeed > 10) {
+        let reason = '';
+        if (isRaining) reason = 'Está lloviendo';
+        else if (temp < 5) reason = 'Hace mucho frío';
+        else if (temp > 35) reason = 'Hace mucho calor';
+        else if (windSpeed > 10) reason = 'Hay mucho viento';
+
+        return {
+            html: `🚌 <strong>Recomendación: Bus</strong><br><span style="font-size: 11px;">${reason}. Mejor viaja en bus.</span>`,
+            color: 'rgba(0, 114, 206, 0.2)',
+            textColor: '#0072ce'
+        };
+    }
+
+    // Condiciones buenas - recomendar bici
+    if (temp >= 10 && temp <= 25 && windSpeed <= 5 && !isRaining) {
+        return {
+            html: `🚴 <strong>Recomendación: BiciMAD</strong><br><span style="font-size: 11px;">Clima perfecto para ir en bici.</span>`,
+            color: 'rgba(0, 208, 132, 0.2)',
+            textColor: '#00d084'
+        };
+    }
+
+    // Condiciones aceptables - recomendar bici con precaución
+    return {
+        html: `🚴 <strong>Recomendación: BiciMAD</strong><br><span style="font-size: 11px;">Condiciones aceptables para bici.</span>`,
+        color: 'rgba(255, 165, 0, 0.2)',
+        textColor: '#ffa500'
+    };
+}
+
+// ============================================
+// CONSULTA DE CLIMA POR ZONA
+// ============================================
+function showWeatherAtLocation(lat, lng) {
+    if (!weatherData) {
+        alert('Datos de clima no disponibles. Intenta recargar la página.');
+        return;
+    }
+
+    // Calcular variación de temperatura basada en distancia del centro y altitud simulada
+    const distance = calculateDistance(lat, lng, MADRID_CENTER[0], MADRID_CENTER[1]);
+
+    // Simular variación de temperatura:
+    // - Por cada km de distancia: ±0.1°C (aleatorio)
+    // - Por altitud simulada: zonas norte más frías, sur más cálidas
+    const latVariation = (lat - MADRID_CENTER[0]) * -15; // Norte más frío
+    const distanceVariation = (Math.random() - 0.5) * distance * 0.3;
+
+    const tempVariation = latVariation + distanceVariation;
+    const localTemp = weatherData.main.temp + tempVariation;
+
+    // Simular variación en velocidad del viento (zonas más altas = más viento)
+    const windVariation = distance * 0.2;
+    const localWind = weatherData.wind.speed + windVariation;
+
+    // Crear datos de clima locales
+    const localWeather = {
+        main: { temp: localTemp },
+        weather: weatherData.weather,
+        wind: { speed: localWind },
+        rain: weatherData.rain
+    };
+
+    // Obtener emoji del clima según el pictocode
+    const weatherEmoji = getWeatherEmoji(localWeather.weather[0].main);
+    const weatherColor = getWeatherColor(localWeather.weather[0].main);
+
+    // Agregar marcador en el mapa
+    const icon = L.divIcon({
+        className: 'weather-marker',
+        html: `<div style="background: ${weatherColor}; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 16px ${weatherColor}60; border: 3px solid white;">${weatherEmoji}</div>`,
+        iconSize: [50, 50],
+        iconAnchor: [25, 25]
+    });
+
+    // Limpiar marcadores previos
+    weatherMarkersLayer.clearLayers();
+
+    L.marker([lat, lng], { icon })
+        .bindPopup(`
+            <div style="text-align: center;">
+                <strong style="font-size: 16px;">${weatherEmoji} ${Math.round(localTemp)}°C</strong><br>
+                <span style="font-size: 12px;">${localWeather.weather[0].description}</span>
+            </div>
+        `)
+        .addTo(weatherMarkersLayer)
+        .openPopup();
+
+    // Actualizar sidebar con información detallada
+    displayWeatherDetails(lat, lng, localWeather, distance);
+}
+
+function getWeatherEmoji(weatherMain) {
+    const emojis = {
+        'Clear': '☀️',
+        'Clouds': '☁️',
+        'Rain': '🌧️',
+        'Drizzle': '🌦️',
+        'Thunderstorm': '⛈️',
+        'Snow': '❄️',
+        'Fog': '🌫️',
+        'Mist': '🌫️'
+    };
+    return emojis[weatherMain] || '🌤️';
+}
+
+function getWeatherColor(weatherMain) {
+    const colors = {
+        'Clear': '#ffa500',
+        'Clouds': '#95a5a6',
+        'Rain': '#3498db',
+        'Drizzle': '#5dade2',
+        'Thunderstorm': '#8e44ad',
+        'Snow': '#ecf0f1',
+        'Fog': '#7f8c8d',
+        'Mist': '#bdc3c7'
+    };
+    return colors[weatherMain] || '#ffa500';
+}
+
+function displayWeatherDetails(lat, lng, weather, distance) {
+    const container = document.getElementById('climaInfo');
+    const temp = weather.main.temp;
+    const weatherEmoji = getWeatherEmoji(weather.weather[0].main);
+    const recommendation = getTransportRecommendation(weather);
+
+    container.innerHTML = `
+        <div style="text-align: center; padding: 20px; background: rgba(255, 165, 0, 0.05); border-radius: 12px; margin-bottom: 15px;">
+            <div style="font-size: 64px; margin-bottom: 10px;">${weatherEmoji}</div>
+            <div style="font-size: 36px; font-weight: bold; margin-bottom: 5px;">${Math.round(temp)}°C</div>
+            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">${weather.weather[0].description}</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div style="padding: 12px; background: var(--surface-light); border-radius: 8px; text-align: center;">
+                <div style="font-size: 20px; margin-bottom: 5px;">💨</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Viento</div>
+                <div style="font-size: 16px; font-weight: 600;">${(weather.wind.speed * 3.6).toFixed(1)} km/h</div>
+            </div>
+
+            <div style="padding: 12px; background: var(--surface-light); border-radius: 8px; text-align: center;">
+                <div style="font-size: 20px; margin-bottom: 5px;">${weather.rain ? '🌧️' : '☀️'}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Precipitación</div>
+                <div style="font-size: 16px; font-weight: 600;">${weather.rain ? weather.rain['1h'] + ' mm' : '0 mm'}</div>
+            </div>
+        </div>
+
+        <div style="padding: 12px; background: ${recommendation.color}; border-radius: 8px; border-left: 4px solid ${recommendation.textColor};">
+            ${recommendation.html}
+        </div>
+
+        <div style="margin-top: 15px; padding: 12px; background: var(--surface-light); border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;">📍 Ubicación consultada</div>
+            <div style="font-size: 12px; font-weight: 600;">Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}</div>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                📏 ${distance.toFixed(2)} km del centro de Madrid
+            </div>
+        </div>
+
+
+    `;
+}
+
+// ============================================
+// SISTEMA DE RUTAS
+// ============================================
+function addRouteMarker(lat, lng, emoji, color) {
+    const icon = L.divIcon({
+        className: 'route-marker',
+        html: `<div style="background: ${color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px ${color}80; border: 3px solid white;">${emoji}</div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+    });
+
+    L.marker([lat, lng], { icon }).addTo(routeLayer);
+}
+
+function checkRouteReady() {
+    if (routeOrigin && routeDestination) {
+        document.getElementById('calculateRouteBtn').style.display = 'block';
+    }
+}
+
+function calculateOptimalRoute() {
+    console.log('Calculando ruta óptima...');
+
+    // Limpiar rutas anteriores
+    routeLayer.clearLayers();
+
+    // Redibujar marcadores de origen y destino
+    addRouteMarker(routeOrigin.lat, routeOrigin.lng, '📍', '#00d084');
+    addRouteMarker(routeDestination.lat, routeDestination.lng, '🎯', '#ff6b6b');
+
+    // Calcular distancia directa
+    const distance = calculateDistance(
+        routeOrigin.lat, routeOrigin.lng,
+        routeDestination.lat, routeDestination.lng
+    );
+
+    console.log(`Distancia: ${distance.toFixed(2)} km`);
+
+    // Determinar mejor modo de transporte según clima y distancia
+    let recommendation = '';
+    let routeColor = '';
+
+    if (distance < 1.5 && weatherData) {
+        // Distancia corta - revisar clima
+        const weatherRec = getTransportRecommendation(weatherData);
+        if (weatherRec.textColor === '#00d084') {
+            recommendation = `🚴 Ruta en BiciMAD (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 5)} minutos`;
+            routeColor = '#00d084';
+            findNearestBikeStations();
+        } else {
+            recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
+            routeColor = '#0072ce';
+            findNearestBusStops();
+        }
+    } else if (distance < 5) {
+        // Distancia media - bus o bici según clima
+        const temp = weatherData ? weatherData.main.temp : 20;
+        const isRaining = weatherData && weatherData.rain;
+
+        if (!isRaining && temp >= 10 && temp <= 25) {
+            recommendation = `🚴 Ruta en BiciMAD (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 5)} minutos`;
+            routeColor = '#00d084';
+            findNearestBikeStations();
+        } else {
+            recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
+            routeColor = '#0072ce';
+            findNearestBusStops();
+        }
+    } else {
+        // Distancia larga - bus recomendado
+        recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
+        routeColor = '#0072ce';
+        findNearestBusStops();
+    }
+
+    // Mostrar popup con recomendación
+    const midpoint = [
+        (routeOrigin.lat + routeDestination.lat) / 2,
+        (routeOrigin.lng + routeDestination.lng) / 2
+    ];
+
+    L.popup()
+        .setLatLng(midpoint)
+        .setContent(`<strong>Ruta Calculada</strong><br>${recommendation}`)
+        .openOn(map);
+
+    // Ajustar vista del mapa
+    map.fitBounds([
+        [routeOrigin.lat, routeOrigin.lng],
+        [routeDestination.lat, routeDestination.lng]
+    ], { padding: [50, 50] });
+
+    // Actualizar info en sidebar
+    document.getElementById('routeInfo').innerHTML = `
+        <strong>✓ Ruta calculada</strong><br>
+        ${recommendation}
+    `;
+}
+
+function findNearestBikeStations() {
+    if (bicisData.length === 0) return;
+
+    // Encontrar estaciones cercanas al origen y destino
+    const nearOrigin = findNearestStation(routeOrigin.lat, routeOrigin.lng, bicisData);
+    const nearDestination = findNearestStation(routeDestination.lat, routeDestination.lng, bicisData);
+
+    if (nearOrigin) {
+        const icon = L.divIcon({
+            className: 'route-station',
+            html: `<div style="background: #00d084; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px #00d08460; border: 2px solid white;">🚴</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        L.marker([nearOrigin.latitude, nearOrigin.longitude], { icon })
+            .bindPopup(`<strong>Estación origen</strong><br>${nearOrigin.name}<br>🚴 ${nearOrigin.available_bikes} bicis disponibles`)
+            .addTo(routeLayer);
+    }
+
+    if (nearDestination) {
+        const icon = L.divIcon({
+            className: 'route-station',
+            html: `<div style="background: #00d084; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px #00d08460; border: 2px solid white;">🚴</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        L.marker([nearDestination.latitude, nearDestination.longitude], { icon })
+            .bindPopup(`<strong>Estación destino</strong><br>${nearDestination.name}<br>📍 ${nearDestination.available_bases} bases libres`)
+            .addTo(routeLayer);
+    }
+}
+
+function findNearestBusStops() {
+    console.log('Buscando paradas de bus cercanas...');
+    // Esta función podría extenderse para buscar paradas de bus cercanas
+    // Por ahora solo muestra un mensaje
+}
+
+function findNearestStation(lat, lng, stations) {
+    let nearest = null;
+    let minDistance = Infinity;
+
+    stations.forEach(station => {
+        const dist = calculateDistance(lat, lng, station.latitude, station.longitude);
+        if (dist < minDistance) {
+            minDistance = dist;
+            nearest = station;
+        }
+    });
+
+    return nearest;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    // Fórmula de Haversine
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
