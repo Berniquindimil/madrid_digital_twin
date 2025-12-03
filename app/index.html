@@ -45,16 +45,6 @@
                 <p id="sidebarSubtitle">EMT Madrid en tiempo real</p>
             </div>
 
-            <!-- Panel de clima y recomendación -->
-            <div id="weatherPanel" style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 208, 132, 0.05); display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 style="font-size: 14px; margin: 0; color: var(--primary);">☁️ Clima en Madrid</h3>
-                    <div id="weatherTemp" style="font-size: 20px; font-weight: bold;"></div>
-                </div>
-                <div id="weatherDescription" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;"></div>
-                <div id="weatherRecommendation" style="padding: 10px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
-            </div>
-
             <!-- Búsqueda de paradas (solo visible en tab de buses) -->
             <div id="busSearchSection" style="display: block;">
                 <div class="search-box">
@@ -75,7 +65,7 @@
                 <button class="tab-btn active" data-tab="paradas">🚌 BUSEMTMAD</button>
                 <button class="tab-btn" data-tab="bicis">🚴 BiciMAD</button>
                 <button class="tab-btn" data-tab="parkings">🅿️ PARKINGS</button>
-                <button class="tab-btn" data-tab="clima">🌤️ CLIMA</button>
+                <button class="tab-btn" data-tab="rutas">🗺️ RUTAS</button>
             </div>
 
             <!-- TAB: PARADAS -->
@@ -156,68 +146,63 @@
                 </div>
             </div>
 
-            <!-- TAB: CLIMA -->
-            <div id="clima" class="tab-content">
-                <div style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(255, 165, 0, 0.05);">
-                    <h3 style="font-size: 12px; margin-bottom: 10px; color: #ffa500;">🗺️ Consultar Clima por Zona</h3>
-                    <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Haz clic en cualquier punto del mapa para ver el clima de esa zona.</p>
-                    <div style="padding: 8px; background: rgba(255, 165, 0, 0.1); border-radius: 6px; border-left: 3px solid #ffa500;">
-                        <p style="font-size: 10px; color: var(--text-secondary); margin: 0;">
-                            💡 <strong>Tip:</strong> La temperatura puede variar según la altitud y distancia del centro.
-                        </p>
-                    </div>
+            <!-- TAB: RUTAS -->
+            <div id="rutas" class="tab-content">
+                <div style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 114, 206, 0.05);">
+                    <h3 style="font-size: 12px; margin-bottom: 10px; color: #0072ce;">🗺️ Calcular Ruta</h3>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Selecciona origen y destino en el mapa para calcular tu ruta.</p>
                 </div>
 
-                <div id="climaInfo" style="padding: 15px;">
-                    <div class="empty-state">
-                        <p style="font-size: 12px;">👆 Haz clic en el mapa para consultar el clima</p>
+                <!-- Selector de perfil -->
+                <div style="padding: 15px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px;">Modo de transporte:</label>
+                    <select id="transportModeSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; cursor: pointer; margin-bottom: 15px;">
+                        <option value="cycling-regular">🚴 Bicicleta</option>
+                        <option value="foot-walking">🚶 A pie</option>
+                        <option value="driving-car">🚗 Coche</option>
+                    </select>
+
+                    <!-- Botón único de calcular ruta -->
+                    <button id="calculateRouteBtnFloat" style="width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0, 208, 132, 0.3);">
+                        🗺️ Calcular Ruta
+                    </button>
+
+                    <!-- Info de ruta -->
+                    <div id="routeInfoFloat" style="margin-top: 15px; padding: 12px; background: rgba(0, 114, 206, 0.1); border-radius: 8px; font-size: 12px; color: var(--text-secondary); display: none;">
                     </div>
                 </div>
             </div>
+
         </div>
 
         <!-- MAPA -->
         <div id="map" class="map"></div>
 
-        <!-- PANEL FLOTANTE DE RUTAS (derecha) -->
-        <div id="routePanelFloat" style="position: fixed; top: 80px; right: -280px; width: 300px; background: var(--bg-primary); border-radius: 12px 0 0 12px; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 1000; transition: right 0.3s ease;">
-            <!-- Header del panel -->
-            <div style="padding: 15px; background: linear-gradient(135deg, #0072ce 0%, #005a9e 100%); border-radius: 12px 0 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="routePanelHeader">
-                <h3 style="margin: 0; color: white; font-size: 14px; font-weight: 700;">🗺️ Calcular Ruta</h3>
-                <button id="routePanelToggle" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: transform 0.2s;">
-                    ◀
-                </button>
-            </div>
+        <!-- PANEL FLOTANTE DE CLIMA (derecha) -->
+        <div id="weatherPanelFloat" style="position: fixed; top: 80px; right: 0; width: 280px; background: #ffffff; border-radius: 12px 0 0 12px; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 1000; transition: right 0.3s ease;">
+            <!-- Toggle button -->
+            <button id="weatherPanelToggle" style="position: absolute; left: -40px; top: 20px; background: #ffffff; border: none; color: #1a1a1a; width: 40px; height: 40px; border-radius: 8px 0 0 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: transform 0.2s; box-shadow: -4px 0 10px rgba(0,0,0,0.2);">
+                ▶
+            </button>
 
             <!-- Contenido del panel -->
-            <div id="routePanelContent" style="padding: 15px;">
-                <!-- Selector de perfil -->
-                <div style="margin-bottom: 15px;">
-                    <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px;">Modo de transporte:</label>
-                    <select id="transportModeSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; cursor: pointer;">
-                        <option value="cycling-regular">🚴 Bicicleta</option>
-                        <option value="foot-walking">🚶 A pie</option>
-                        <option value="driving-car">🚗 Coche</option>
-                    </select>
+            <div style="padding: 20px;">
+                <!-- CLIMA DE MADRID -->
+                <div style="padding: 15px; background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="font-size: 14px; margin: 0; color: #00d084; font-weight: 700;">🌤️ Clima en Madrid</h3>
+                        <div id="weatherTemp" style="font-size: 24px; font-weight: bold; color: #00d084;"></div>
+                    </div>
+                    <div id="weatherDescription" style="font-size: 12px; color: #6b7280; margin-bottom: 10px; text-transform: capitalize;"></div>
+                    <div id="weatherRecommendation" style="padding: 10px; border-radius: 6px; font-size: 11px; font-weight: 600;"></div>
                 </div>
 
-                <!-- Botones de selección -->
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                    <button id="selectOriginBtnFloat" style="padding: 12px; background: #0072ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
-                        📍 Seleccionar Origen
-                    </button>
-                    <button id="selectDestinationBtnFloat" style="padding: 12px; background: #0072ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
-                        🎯 Seleccionar Destino
-                    </button>
-                </div>
-
-                <!-- Botón calcular -->
-                <button id="calculateRouteBtnFloat" style="width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; display: none; transition: all 0.2s;">
-                    ✨ Calcular Ruta
+                <!-- BOTÓN CONSULTAR CLIMA POR ZONA -->
+                <button id="consultWeatherBtn" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 700; transition: all 0.2s; box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3);">
+                    🗺️ Consultar Clima por Zona
                 </button>
 
-                <!-- Info de ruta -->
-                <div id="routeInfoFloat" style="margin-top: 15px; padding: 12px; background: rgba(0, 114, 206, 0.1); border-radius: 8px; font-size: 11px; color: var(--text-secondary); display: none;">
+                <div id="climaInfo" style="margin-top: 15px; padding: 12px; background: rgba(255, 165, 0, 0.05); border-radius: 8px; font-size: 11px; color: #6b7280; display: none; border: 1px solid rgba(255, 165, 0, 0.2);">
                 </div>
             </div>
         </div>
