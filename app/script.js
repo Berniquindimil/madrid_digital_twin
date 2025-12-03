@@ -2,13 +2,16 @@
 // CONFIGURACIÓN
 // ============================================
 const API_BICIMAD = 'http://localhost:5678/webhook/bicimad';
-const API_PARKINGS = 'http://localhost:5678/webhook-test/parkings';
+const API_PARKINGS = 'http://localhost:5678/webhook/parkings';
 const API_BUSES = (stopId) => `http://localhost:5678/webhook/e256e4f8-a9b0-4cc4-bcae-b6a7a3667557/bus-parada/${stopId}`;
 const API_PARADAS_CERCANAS = (lon, lat, radius) => `http://localhost:5678/webhook/4afc1676-8aa6-4827-881b-53cdcf87682f/paradas-cercanas/${lon}/${lat}/${radius}`;
 
 // Meteoblue API Configuration
 // Usa la API basic weather (free tier) o current conditions
 const API_WEATHER = 'http://localhost:5678/webhook/clima-madrid';
+
+// OpenRouteService via n8n webhook
+const API_ROUTING = 'http://localhost:5678/webhook/rutas';
 
 const MADRID_CENTER = [40.4168, -3.7038];
 const ZOOM_LEVEL = 12;
@@ -205,30 +208,66 @@ function setupEventListeners() {
         });
     }
 
-    // Botones de rutas
-    const selectOriginBtn = document.getElementById('selectOriginBtn');
-    if (selectOriginBtn) {
-        selectOriginBtn.addEventListener('click', () => {
+    // Panel flotante de rutas - Toggle
+    const routePanelFloat = document.getElementById('routePanelFloat');
+    const routePanelToggle = document.getElementById('routePanelToggle');
+    let isPanelOpen = false;
+
+    const togglePanel = () => {
+        isPanelOpen = !isPanelOpen;
+        if (isPanelOpen) {
+            routePanelFloat.style.right = '0';
+            routePanelToggle.textContent = '▶';
+            routePanelToggle.style.transform = 'rotate(180deg)';
+        } else {
+            routePanelFloat.style.right = '-280px';
+            routePanelToggle.textContent = '◀';
+            routePanelToggle.style.transform = 'rotate(0deg)';
+        }
+    };
+
+    if (routePanelToggle) {
+        routePanelToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePanel();
+        });
+    }
+
+    // Botones de rutas (panel flotante)
+    const selectOriginBtnFloat = document.getElementById('selectOriginBtnFloat');
+    if (selectOriginBtnFloat) {
+        selectOriginBtnFloat.addEventListener('click', () => {
             selectingOrigin = true;
             selectingDestination = false;
-            selectOriginBtn.style.opacity = '0.5';
-            selectOriginBtn.textContent = '📍 Clickea en el mapa...';
+            selectOriginBtnFloat.style.opacity = '0.5';
+            selectOriginBtnFloat.textContent = '📍 Clickea en el mapa...';
+
+            const selectDestinationBtnFloat = document.getElementById('selectDestinationBtnFloat');
+            if (selectDestinationBtnFloat) {
+                selectDestinationBtnFloat.style.opacity = '1';
+                selectDestinationBtnFloat.textContent = '🎯 Seleccionar Destino';
+            }
         });
     }
 
-    const selectDestinationBtn = document.getElementById('selectDestinationBtn');
-    if (selectDestinationBtn) {
-        selectDestinationBtn.addEventListener('click', () => {
+    const selectDestinationBtnFloat = document.getElementById('selectDestinationBtnFloat');
+    if (selectDestinationBtnFloat) {
+        selectDestinationBtnFloat.addEventListener('click', () => {
             selectingDestination = true;
             selectingOrigin = false;
-            selectDestinationBtn.style.opacity = '0.5';
-            selectDestinationBtn.textContent = '🎯 Clickea en el mapa...';
+            selectDestinationBtnFloat.style.opacity = '0.5';
+            selectDestinationBtnFloat.textContent = '🎯 Clickea en el mapa...';
+
+            if (selectOriginBtnFloat) {
+                selectOriginBtnFloat.style.opacity = '1';
+                selectOriginBtnFloat.textContent = '📍 Seleccionar Origen';
+            }
         });
     }
 
-    const calculateRouteBtn = document.getElementById('calculateRouteBtn');
-    if (calculateRouteBtn) {
-        calculateRouteBtn.addEventListener('click', () => {
+    const calculateRouteBtnFloat = document.getElementById('calculateRouteBtnFloat');
+    if (calculateRouteBtnFloat) {
+        calculateRouteBtnFloat.addEventListener('click', () => {
             if (routeOrigin && routeDestination) {
                 calculateOptimalRoute();
             }
@@ -725,33 +764,28 @@ function switchTab(tabName) {
 
     // Actualizar título y mostrar/ocultar secciones según el tab
     const busSearchSection = document.getElementById('busSearchSection');
-    const routePanel = document.getElementById('routePanel');
     const sidebarTitle = document.getElementById('sidebarTitle');
     const sidebarSubtitle = document.getElementById('sidebarSubtitle');
 
     if (tabName === 'paradas') {
-        busSearchSection.style.display = 'block';
-        routePanel.style.display = 'block';
-        sidebarTitle.textContent = '🚌 Buses';
-        sidebarSubtitle.textContent = 'EMT Madrid en tiempo real';
+        if (busSearchSection) busSearchSection.style.display = 'block';
+        if (sidebarTitle) sidebarTitle.textContent = '🚌 Buses';
+        if (sidebarSubtitle) sidebarSubtitle.textContent = 'EMT Madrid en tiempo real';
         selectingWeather = false;
     } else if (tabName === 'bicis') {
-        busSearchSection.style.display = 'none';
-        routePanel.style.display = 'block';
-        sidebarTitle.textContent = '🚴 BiciMAD';
-        sidebarSubtitle.textContent = 'Estaciones en tiempo real';
+        if (busSearchSection) busSearchSection.style.display = 'none';
+        if (sidebarTitle) sidebarTitle.textContent = '🚴 BiciMAD';
+        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Estaciones en tiempo real';
         selectingWeather = false;
     } else if (tabName === 'parkings') {
-        busSearchSection.style.display = 'none';
-        routePanel.style.display = 'block';
-        sidebarTitle.textContent = '🅿️ Parkings';
-        sidebarSubtitle.textContent = 'Disponibilidad en tiempo real';
+        if (busSearchSection) busSearchSection.style.display = 'none';
+        if (sidebarTitle) sidebarTitle.textContent = '🅿️ Parkings';
+        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Disponibilidad en tiempo real';
         selectingWeather = false;
     } else if (tabName === 'clima') {
-        busSearchSection.style.display = 'none';
-        routePanel.style.display = 'none';
-        sidebarTitle.textContent = '🌤️ Clima';
-        sidebarSubtitle.textContent = 'Información meteorológica';
+        if (busSearchSection) busSearchSection.style.display = 'none';
+        if (sidebarTitle) sidebarTitle.textContent = '🌤️ Clima';
+        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Información meteorológica';
         selectingWeather = true;
     }
 
@@ -1099,11 +1133,26 @@ function addRouteMarker(lat, lng, emoji, color) {
 
 function checkRouteReady() {
     if (routeOrigin && routeDestination) {
-        document.getElementById('calculateRouteBtn').style.display = 'block';
+        const calculateRouteBtnFloat = document.getElementById('calculateRouteBtnFloat');
+        if (calculateRouteBtnFloat) {
+            calculateRouteBtnFloat.style.display = 'block';
+        }
+
+        // Resetear botones
+        const selectOriginBtnFloat = document.getElementById('selectOriginBtnFloat');
+        const selectDestinationBtnFloat = document.getElementById('selectDestinationBtnFloat');
+        if (selectOriginBtnFloat) {
+            selectOriginBtnFloat.style.opacity = '1';
+            selectOriginBtnFloat.textContent = '📍 Seleccionar Origen';
+        }
+        if (selectDestinationBtnFloat) {
+            selectDestinationBtnFloat.style.opacity = '1';
+            selectDestinationBtnFloat.textContent = '🎯 Seleccionar Destino';
+        }
     }
 }
 
-function calculateOptimalRoute() {
+async function calculateOptimalRoute() {
     console.log('Calculando ruta óptima...');
 
     // Limpiar rutas anteriores
@@ -1119,67 +1168,205 @@ function calculateOptimalRoute() {
         routeDestination.lat, routeDestination.lng
     );
 
-    console.log(`Distancia: ${distance.toFixed(2)} km`);
+    console.log(`Distancia directa: ${distance.toFixed(2)} km`);
 
-    // Determinar mejor modo de transporte según clima y distancia
-    let recommendation = '';
-    let routeColor = '';
+    // Obtener modo de transporte seleccionado por el usuario
+    const transportModeSelect = document.getElementById('transportModeSelect');
+    let transportMode = transportModeSelect ? transportModeSelect.value : 'cycling-regular';
+    let routeColor = '#00d084';
+    let transportEmoji = '🚴';
+    let transportName = 'Bicicleta';
 
-    if (distance < 1.5 && weatherData) {
-        // Distancia corta - revisar clima
-        const weatherRec = getTransportRecommendation(weatherData);
-        if (weatherRec.textColor === '#00d084') {
-            recommendation = `🚴 Ruta en BiciMAD (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 5)} minutos`;
-            routeColor = '#00d084';
-            findNearestBikeStations();
-        } else {
-            recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
-            routeColor = '#0072ce';
-            findNearestBusStops();
-        }
-    } else if (distance < 5) {
-        // Distancia media - bus o bici según clima
-        const temp = weatherData ? weatherData.main.temp : 20;
-        const isRaining = weatherData && weatherData.rain;
-
-        if (!isRaining && temp >= 10 && temp <= 25) {
-            recommendation = `🚴 Ruta en BiciMAD (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 5)} minutos`;
-            routeColor = '#00d084';
-            findNearestBikeStations();
-        } else {
-            recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
-            routeColor = '#0072ce';
-            findNearestBusStops();
-        }
-    } else {
-        // Distancia larga - bus recomendado
-        recommendation = `🚌 Ruta en Bus (${distance.toFixed(2)} km)\nTiempo estimado: ${Math.ceil(distance * 8)} minutos`;
+    // Asignar colores y nombres según el modo
+    if (transportMode === 'cycling-regular') {
+        routeColor = '#00d084';
+        transportEmoji = '🚴';
+        transportName = 'Bicicleta';
+    } else if (transportMode === 'foot-walking') {
         routeColor = '#0072ce';
-        findNearestBusStops();
+        transportEmoji = '🚶';
+        transportName = 'A pie';
+    } else if (transportMode === 'driving-car') {
+        routeColor = '#ff9500';
+        transportEmoji = '🚗';
+        transportName = 'Coche';
     }
 
-    // Mostrar popup con recomendación
-    const midpoint = [
-        (routeOrigin.lat + routeDestination.lat) / 2,
-        (routeOrigin.lng + routeDestination.lng) / 2
-    ];
+    // Mostrar estado de carga
+    const routeInfoFloat = document.getElementById('routeInfoFloat');
+    if (routeInfoFloat) {
+        routeInfoFloat.style.display = 'block';
+        routeInfoFloat.innerHTML = `
+            <strong>⏳ Calculando ruta...</strong><br>
+            Obteniendo mejor ruta ${transportEmoji}
+        `;
+    }
 
-    L.popup()
-        .setLatLng(midpoint)
-        .setContent(`<strong>Ruta Calculada</strong><br>${recommendation}`)
-        .openOn(map);
+    try {
+        // Llamar a OpenRouteService API
+        const routeData = await fetchRoute(
+            routeOrigin.lng, routeOrigin.lat,
+            routeDestination.lng, routeDestination.lat,
+            transportMode
+        );
 
-    // Ajustar vista del mapa
-    map.fitBounds([
-        [routeOrigin.lat, routeOrigin.lng],
-        [routeDestination.lat, routeDestination.lng]
-    ], { padding: [50, 50] });
+        if (!routeData || !routeData.routes || routeData.routes.length === 0) {
+            throw new Error('No se pudo calcular la ruta');
+        }
 
-    // Actualizar info en sidebar
-    document.getElementById('routeInfo').innerHTML = `
-        <strong>✓ Ruta calculada</strong><br>
-        ${recommendation}
-    `;
+        // Extraer datos de la ruta (formato OpenRouteService)
+        const route = routeData.routes[0];
+        const segment = route.segments[0];
+
+        // Decodificar geometría (viene como polyline encoded)
+        const coordinates = decodePolyline(route.geometry);
+        const distanceKm = (segment.distance / 1000).toFixed(2);
+        const durationMin = Math.ceil(segment.duration / 60);
+
+        console.log(`✓ Ruta calculada: ${distanceKm} km, ${durationMin} min (${coordinates.length} puntos)`);
+
+        // Dibujar la ruta en el mapa
+        drawRouteOnMap(coordinates, routeColor);
+
+        // Buscar estaciones cercanas si es ruta en bici
+        if (transportMode === 'cycling-regular') {
+            findNearestBikeStations();
+        }
+
+        // Mostrar popup con recomendación
+        const midpoint = [
+            (routeOrigin.lat + routeDestination.lat) / 2,
+            (routeOrigin.lng + routeDestination.lng) / 2
+        ];
+
+        L.popup()
+            .setLatLng(midpoint)
+            .setContent(`
+                <strong>Ruta Calculada</strong><br>
+                ${transportEmoji} ${transportName}<br>
+                📏 ${distanceKm} km<br>
+                ⏱️ ${durationMin} min
+            `)
+            .openOn(map);
+
+        // Ajustar vista del mapa a la ruta
+        const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
+        map.fitBounds(latLngs, { padding: [50, 50] });
+
+        // Actualizar info en panel flotante
+        if (routeInfoFloat) {
+            routeInfoFloat.style.display = 'block';
+            routeInfoFloat.innerHTML = `
+                <strong>✓ Ruta calculada</strong><br>
+                ${transportEmoji} ${transportName}<br>
+                📏 Distancia: ${distanceKm} km<br>
+                ⏱️ Tiempo: ${durationMin} min
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error calculando ruta:', error);
+        if (routeInfoFloat) {
+            routeInfoFloat.style.display = 'block';
+            routeInfoFloat.innerHTML = `
+                <strong>❌ Error</strong><br>
+                No se pudo calcular la ruta.<br>
+                <span style="font-size: 10px;">Verifica la conexión con n8n</span>
+            `;
+        }
+    }
+}
+
+// Nueva función para llamar a OpenRouteService via n8n
+async function fetchRoute(startLon, startLat, endLon, endLat, profile) {
+    const url = `${API_ROUTING}?profile=${profile}&startLon=${startLon}&startLat=${startLat}&endLon=${endLon}&endLat=${endLat}`;
+
+    console.log('Llamando a:', url);
+
+    try {
+        const response = await fetch(url);
+
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Data recibida:', data);
+
+        // n8n devuelve un array, extraemos el primer elemento
+        return Array.isArray(data) ? data[0] : data;
+    } catch (error) {
+        console.error('Error fetching route:', error);
+        return null;
+    }
+}
+
+// Función para decodificar polyline encoded (formato OpenRouteService/Google)
+function decodePolyline(encoded) {
+    const coordinates = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < len) {
+        let b;
+        let shift = 0;
+        let result = 0;
+
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+
+        const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+
+        const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        coordinates.push([lng * 1e-5, lat * 1e-5]);
+    }
+
+    return coordinates;
+}
+
+// Nueva función para dibujar la ruta en el mapa
+function drawRouteOnMap(coordinates, color) {
+    // Convertir coordenadas de [lon, lat] a [lat, lon] para Leaflet
+    const latLngs = coordinates.map(coord => [coord[1], coord[0]]);
+
+    // Añadir borde oscuro primero (se dibuja detrás)
+    L.polyline(latLngs, {
+        color: '#000000',
+        weight: 8,
+        opacity: 0.4,
+        lineJoin: 'round'
+    }).addTo(routeLayer);
+
+    // Crear polyline principal con color más visible
+    L.polyline(latLngs, {
+        color: color === '#00d084' ? '#FF3333' : '#FF6B35', // Rojo para bicis, naranja-rojo para peatones
+        weight: 5,
+        opacity: 0.9,
+        lineJoin: 'round',
+        lineCap: 'round'
+    }).addTo(routeLayer);
 }
 
 function findNearestBikeStations() {

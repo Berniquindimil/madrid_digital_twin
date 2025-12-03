@@ -70,22 +70,6 @@
                 </div>
             </div>
 
-            <!-- Panel de rutas (visible en todos los tabs) -->
-            <div id="routePanel" style="padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0, 114, 206, 0.05); display: none;">
-                <h3 style="font-size: 12px; margin-bottom: 10px; color: #0072ce;">🗺️ Calcular Ruta</h3>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button id="selectOriginBtn" style="padding: 8px; background: #0072ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
-                        📍 Seleccionar Origen
-                    </button>
-                    <button id="selectDestinationBtn" style="padding: 8px; background: #0072ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
-                        🎯 Seleccionar Destino
-                    </button>
-                    <button id="calculateRouteBtn" style="padding: 8px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; display: none;">
-                        ✨ Calcular Ruta Óptima
-                    </button>
-                    <div id="routeInfo" style="font-size: 10px; color: var(--text-secondary); margin-top: 5px;"></div>
-                </div>
-            </div>
 
             <div class="tabs">
                 <button class="tab-btn active" data-tab="paradas">🚌 BUSEMTMAD</button>
@@ -194,6 +178,49 @@
 
         <!-- MAPA -->
         <div id="map" class="map"></div>
+
+        <!-- PANEL FLOTANTE DE RUTAS (derecha) -->
+        <div id="routePanelFloat" style="position: fixed; top: 80px; right: -280px; width: 300px; background: var(--bg-primary); border-radius: 12px 0 0 12px; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 1000; transition: right 0.3s ease;">
+            <!-- Header del panel -->
+            <div style="padding: 15px; background: linear-gradient(135deg, #0072ce 0%, #005a9e 100%); border-radius: 12px 0 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="routePanelHeader">
+                <h3 style="margin: 0; color: white; font-size: 14px; font-weight: 700;">🗺️ Calcular Ruta</h3>
+                <button id="routePanelToggle" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: transform 0.2s;">
+                    ◀
+                </button>
+            </div>
+
+            <!-- Contenido del panel -->
+            <div id="routePanelContent" style="padding: 15px;">
+                <!-- Selector de perfil -->
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px;">Modo de transporte:</label>
+                    <select id="transportModeSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; cursor: pointer;">
+                        <option value="cycling-regular">🚴 Bicicleta</option>
+                        <option value="foot-walking">🚶 A pie</option>
+                        <option value="driving-car">🚗 Coche</option>
+                    </select>
+                </div>
+
+                <!-- Botones de selección -->
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                    <button id="selectOriginBtnFloat" style="padding: 12px; background: #0072ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                        📍 Seleccionar Origen
+                    </button>
+                    <button id="selectDestinationBtnFloat" style="padding: 12px; background: #0072ce; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                        🎯 Seleccionar Destino
+                    </button>
+                </div>
+
+                <!-- Botón calcular -->
+                <button id="calculateRouteBtnFloat" style="width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: var(--bg-dark); border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; display: none; transition: all 0.2s;">
+                    ✨ Calcular Ruta
+                </button>
+
+                <!-- Info de ruta -->
+                <div id="routeInfoFloat" style="margin-top: 15px; padding: 12px; background: rgba(0, 114, 206, 0.1); border-radius: 8px; font-size: 11px; color: var(--text-secondary); display: none;">
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
