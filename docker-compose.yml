@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL con TimescaleDB
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: madrid-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: madrid_metrics
+      POSTGRES_USER: metrics_user
+      POSTGRES_PASSWORD: metrics_password_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - madrid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metrics_user -d madrid_metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: madrid-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin2024
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - madrid-network
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  # pgAdmin - Interfaz web para PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: madrid-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin2024
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - madrid-network
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+volumes:
+  timescaledb-data:
+    name: madrid-timescaledb-data
+  grafana-data:
+    name: madrid-grafana-data
+  pgadmin-data:
+    name: madrid-pgadmin-data
+
+networks:
+  madrid-network:
+    name: madrid-network
+    driver: bridge

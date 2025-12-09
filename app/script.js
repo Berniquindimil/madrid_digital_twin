@@ -1079,13 +1079,14 @@ async function loadBusStop(stopId) {
             return;
         }
 
-        stopsData[stopId] = busData;
-
-        // Validar arrivals (buses)
+        // Ordenar arrivals por tiempo estimado de llegada (menor a mayor)
         if (busData.arrivals && busData.arrivals.length > 0) {
-            metricsSystem.validateRenderedData(busData.arrivals, 'line');
+            busData.arrivals.sort((a, b) => {
+                return (a.estimateArrive || 0) - (b.estimateArrive || 0);
+            });
         }
 
+        stopsData[stopId] = busData;
         renderBusStop(busData);
 
         // Finalizar tracking exitosamente
@@ -2150,4 +2151,80 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('  - metrics.printSummary() - Ver resumen en consola');
     console.log('  - metrics.exportMetrics() - Exportar a JSON');
     console.log('  - metrics.reset() - Resetear métricas');
+});
+
+// ============================================
+// ENVÍO AUTOMÁTICO DE MÉTRICAS A POSTGRESQL
+// ============================================
+
+metricsSystem.sendToBackend = async function() {
+    const payload = {
+        timestamp: new Date().toISOString(),
+        sessionId: this._getSessionId(),
+        userAgent: navigator.userAgent,
+        tabSwitches: this.data.tabSwitches.slice(-10).map(t => ({
+            time: t.timestamp,
+            tab_name: t.tabName,
+            duration: t.duration,
+            success: t.success,
+            error_msg: t.errorMsg || null
+        })),
+        apiCalls: this.data.apiCalls.slice(-10).map(a => ({
+            time: a.timestamp,
+            api_name: a.apiName,
+            url: a.url,
+            method: a.method,
+            duration: a.duration || null,
+            success: a.success,
+            cached: a.cached || false,
+            error_msg: a.errorMsg || null
+        })),
+        renderErrors: this.data.renderErrors.slice(-5).map(e => ({
+            time: e.timestamp,
+            component: e.component,
+            error_type: e.errorType,
+            details: e.details
+        }))
+    };
+
+    try {
+        const response = await fetch('http://localhost:5678/webhook/metrics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            console.log('📊 Métricas enviadas al backend exitosamente');
+        } else {
+            console.warn('⚠️ Error al enviar métricas:', response.status);
+        }
+    } catch (err) {
+        console.error('❌ Error enviando métricas a backend:', err.message);
+    }
+};
+
+metricsSystem._getSessionId = function() {
+    let sessionId = sessionStorage.getItem('metricsSessionId');
+    if (!sessionId) {
+        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionStorage.setItem('metricsSessionId', sessionId);
+    }
+    return sessionId;
+};
+
+metricsSystem.startAutoSend = function() {
+    // Enviar métricas cada 30 segundos
+    setInterval(() => {
+        if (this.data.tabSwitches.length > 0 || this.data.apiCalls.length > 0) {
+            this.sendToBackend();
+        }
+    }, 30000); // 30 segundos
+
+    console.log('📊 Auto-envío de métricas activado (cada 30 segundos)');
+};
+
+// Iniciar auto-envío cuando cargue la página
+document.addEventListener('DOMContentLoaded', () => {
+    metricsSystem.startAutoSend();
 });
