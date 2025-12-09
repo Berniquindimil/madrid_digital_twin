@@ -33,6 +33,7 @@
         </div>
         <ul class="navbar-menu">
             <li><button class="nav-btn" id="toggle-dark" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button></li>
+            <li><button class="nav-btn" id="toggle-metrics" title="Ver Métricas de Rendimiento"><i class="fas fa-chart-line"></i></button></li>
         </ul>
     </nav>
 
@@ -204,6 +205,71 @@
 
                 <div id="climaInfo" style="margin-top: 15px; padding: 12px; background: rgba(255, 165, 0, 0.05); border-radius: 8px; font-size: 11px; color: #6b7280; display: none; border: 1px solid rgba(255, 165, 0, 0.2);">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL FLOTANTE DE MÉTRICAS -->
+    <div id="metricsPanel" style="position: fixed; top: 80px; left: -450px; width: 450px; height: calc(100vh - 100px); background: var(--bg-secondary); border-radius: 0 12px 12px 0; box-shadow: 4px 0 20px rgba(0,0,0,0.3); z-index: 1000; transition: left 0.3s ease; overflow-y: auto;">
+        <!-- Toggle button -->
+        <button id="metricsPanelToggle" style="position: absolute; right: -40px; top: 20px; background: var(--bg-secondary); border: none; color: var(--text-primary); width: 40px; height: 40px; border-radius: 0 8px 8px 0; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: transform 0.2s; box-shadow: 4px 0 10px rgba(0,0,0,0.2);">
+            ◀
+        </button>
+
+        <!-- Contenido del panel -->
+        <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid var(--border);">
+                <h2 style="font-size: 18px; margin: 0; color: var(--primary); font-weight: 700;">📊 KPIs y Métricas</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button id="exportMetricsBtn" title="Exportar métricas" style="background: var(--primary); color: var(--bg-dark); border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                        <i class="fas fa-download"></i> Exportar
+                    </button>
+                    <button id="resetMetricsBtn" title="Reset métricas" style="background: #ff6b6b; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resumen rápido -->
+            <div id="metricsQuickSummary" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                <!-- Se llenará dinámicamente -->
+            </div>
+
+            <!-- Cambios de Pestaña -->
+            <div style="background: var(--surface-light); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid var(--primary);">
+                <h3 style="font-size: 14px; margin: 0 0 12px 0; color: var(--primary); font-weight: 700;">🔄 Tiempos de Carga por Pestaña</h3>
+                <div id="tabMetrics">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Llamadas a API -->
+            <div style="background: var(--surface-light); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #0072ce;">
+                <h3 style="font-size: 14px; margin: 0 0 12px 0; color: #0072ce; font-weight: 700;">🌐 Llamadas a API</h3>
+                <div id="apiMetrics">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Errores de Renderizado -->
+            <div style="background: var(--surface-light); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ff6b6b;">
+                <h3 style="font-size: 14px; margin: 0 0 12px 0; color: #ff6b6b; font-weight: 700;">❌ Errores de Renderizado</h3>
+                <div id="renderErrorMetrics">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Peticiones Duplicadas -->
+            <div id="duplicateCallsSection" style="background: var(--surface-light); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ffa500; display: none;">
+                <h3 style="font-size: 14px; margin: 0 0 12px 0; color: #ffa500; font-weight: 700;">⚠️ Peticiones Duplicadas</h3>
+                <div id="duplicateCallsMetrics">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Última actualización -->
+            <div style="text-align: center; padding-top: 15px; border-top: 1px solid var(--border);">
+                <span id="metricsLastUpdate" style="font-size: 10px; color: var(--text-secondary);"></span>
             </div>
         </div>
     </div>

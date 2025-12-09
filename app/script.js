@@ -17,6 +17,326 @@ const MADRID_CENTER = [40.4168, -3.7038];
 const ZOOM_LEVEL = 12;
 
 // ============================================
+// SISTEMA DE MÉTRICAS Y KPIs
+// ============================================
+const metricsSystem = {
+    // Almacenamiento de métricas
+    data: {
+        tabSwitches: [], // Cambios de pestaña con tiempos
+        apiCalls: [], // Llamadas a API con timestamps
+        renderErrors: [], // Errores de renderizado detectados
+        performance: {
+            bicis: [],
+            parkings: [],
+            paradas: [],
+            rutas: []
+        }
+    },
+
+    // Configuración
+    config: {
+        maxStoredMetrics: 100, // Máximo de métricas a almacenar en memoria
+        warningThreshold: 2000, // ms - umbral de advertencia para carga
+        errorThreshold: 5000 // ms - umbral de error para carga
+    },
+
+    // Iniciar tracking de cambio de pestaña
+    startTabSwitch(tabName) {
+        return {
+            tabName,
+            startTime: performance.now(),
+            timestamp: new Date().toISOString()
+        };
+    },
+
+    // Finalizar tracking de cambio de pestaña
+    endTabSwitch(trackingData, success = true, errorMsg = null) {
+        const endTime = performance.now();
+        const duration = endTime - trackingData.startTime;
+
+        const metric = {
+            ...trackingData,
+            endTime,
+            duration,
+            success,
+            errorMsg
+        };
+
+        this.data.tabSwitches.push(metric);
+        this._limitArray(this.data.tabSwitches);
+
+        // Log en consola
+        console.log(`[MÉTRICA] Cambio a pestaña "${trackingData.tabName}": ${duration.toFixed(2)}ms`);
+
+        if (duration > this.config.errorThreshold) {
+            console.warn(`⚠️ Tiempo de carga excesivo para "${trackingData.tabName}": ${duration.toFixed(2)}ms`);
+        }
+
+        return metric;
+    },
+
+    // Registrar llamada a API
+    trackAPICall(apiName, url, method = 'GET') {
+        const callData = {
+            apiName,
+            url,
+            method,
+            timestamp: new Date().toISOString(),
+            startTime: performance.now()
+        };
+
+        this.data.apiCalls.push(callData);
+        this._limitArray(this.data.apiCalls);
+
+        console.log(`[API] Llamando a ${apiName}: ${url}`);
+        return callData;
+    },
+
+    // Finalizar tracking de API
+    endAPICall(trackingData, success = true, errorMsg = null, cached = false) {
+        const endTime = performance.now();
+        const duration = endTime - trackingData.startTime;
+
+        trackingData.endTime = endTime;
+        trackingData.duration = duration;
+        trackingData.success = success;
+        trackingData.errorMsg = errorMsg;
+        trackingData.cached = cached;
+
+        console.log(`[API] ${trackingData.apiName} completada en ${duration.toFixed(2)}ms${cached ? ' (caché)' : ''}`);
+
+        return trackingData;
+    },
+
+    // Detectar peticiones duplicadas
+    detectDuplicateAPICalls(timeWindow = 5000) {
+        const now = Date.now();
+        const recentCalls = this.data.apiCalls.filter(call =>
+            now - new Date(call.timestamp).getTime() < timeWindow
+        );
+
+        const duplicates = {};
+        recentCalls.forEach(call => {
+            const key = `${call.apiName}_${call.url}`;
+            duplicates[key] = (duplicates[key] || 0) + 1;
+        });
+
+        const foundDuplicates = Object.entries(duplicates)
+            .filter(([_, count]) => count > 1)
+            .map(([key, count]) => ({ key, count }));
+
+        if (foundDuplicates.length > 0) {
+            console.warn('⚠️ Peticiones duplicadas detectadas:', foundDuplicates);
+        }
+
+        return foundDuplicates;
+    },
+
+    // Registrar error de renderizado
+    trackRenderError(component, errorType, details) {
+        const error = {
+            component,
+            errorType,
+            details,
+            timestamp: new Date().toISOString()
+        };
+
+        this.data.renderErrors.push(error);
+        this._limitArray(this.data.renderErrors);
+
+        console.error(`[ERROR RENDER] ${component} - ${errorType}:`, details);
+
+        return error;
+    },
+
+    // Validar datos renderizados (detectar duplicados)
+    validateRenderedData(dataArray, idField = 'id') {
+        const ids = dataArray.map(item => item[idField]);
+        const uniqueIds = new Set(ids);
+
+        if (ids.length !== uniqueIds.size) {
+            const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+            this.trackRenderError('DataValidation', 'DUPLICATES_FOUND', {
+                field: idField,
+                duplicateIds: [...new Set(duplicates)],
+                totalItems: ids.length,
+                uniqueItems: uniqueIds.size
+            });
+            return false;
+        }
+
+        return true;
+    },
+
+    // Calcular estadísticas de rendimiento
+    getPerformanceStats(tabName = null) {
+        let relevantSwitches = this.data.tabSwitches;
+
+        if (tabName) {
+            relevantSwitches = relevantSwitches.filter(s => s.tabName === tabName);
+        }
+
+        if (relevantSwitches.length === 0) {
+            return null;
+        }
+
+        const durations = relevantSwitches.map(s => s.duration);
+        const successCount = relevantSwitches.filter(s => s.success).length;
+
+        return {
+            tabName: tabName || 'TODAS',
+            count: relevantSwitches.length,
+            successRate: ((successCount / relevantSwitches.length) * 100).toFixed(2) + '%',
+            avgTime: (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(2) + 'ms',
+            minTime: Math.min(...durations).toFixed(2) + 'ms',
+            maxTime: Math.max(...durations).toFixed(2) + 'ms',
+            medianTime: this._calculateMedian(durations).toFixed(2) + 'ms'
+        };
+    },
+
+    // Obtener resumen de métricas
+    getSummary() {
+        const summary = {
+            tabSwitches: {
+                total: this.data.tabSwitches.length,
+                byTab: {
+                    bicis: this.getPerformanceStats('bicis'),
+                    parkings: this.getPerformanceStats('parkings'),
+                    paradas: this.getPerformanceStats('paradas'),
+                    rutas: this.getPerformanceStats('rutas')
+                }
+            },
+            apiCalls: {
+                total: this.data.apiCalls.length,
+                successful: this.data.apiCalls.filter(c => c.success).length,
+                cached: this.data.apiCalls.filter(c => c.cached).length,
+                failed: this.data.apiCalls.filter(c => !c.success).length,
+                avgDuration: this.data.apiCalls.length > 0
+                    ? (this.data.apiCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / this.data.apiCalls.length).toFixed(2) + 'ms'
+                    : '0ms'
+            },
+            renderErrors: {
+                total: this.data.renderErrors.length,
+                byType: this._groupBy(this.data.renderErrors, 'errorType')
+            },
+            duplicateCalls: this.detectDuplicateAPICalls()
+        };
+
+        return summary;
+    },
+
+    // Exportar métricas a JSON
+    exportMetrics() {
+        const exportData = {
+            summary: this.getSummary(),
+            rawData: this.data,
+            exportedAt: new Date().toISOString(),
+            config: this.config
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `metrics_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log('📊 Métricas exportadas exitosamente');
+    },
+
+    // Mostrar resumen en consola
+    printSummary() {
+        const summary = this.getSummary();
+        console.log('═══════════════════════════════════════════');
+        console.log('📊 RESUMEN DE MÉTRICAS - Madrid Digital Twin');
+        console.log('═══════════════════════════════════════════');
+        console.log('\n🔄 CAMBIOS DE PESTAÑA:');
+        console.log(`  Total: ${summary.tabSwitches.total}`);
+        Object.entries(summary.tabSwitches.byTab).forEach(([tab, stats]) => {
+            if (stats) {
+                console.log(`\n  📑 ${tab.toUpperCase()}:`);
+                console.log(`    - Cambios: ${stats.count}`);
+                console.log(`    - Tasa éxito: ${stats.successRate}`);
+                console.log(`    - Tiempo promedio: ${stats.avgTime}`);
+                console.log(`    - Tiempo mín/máx: ${stats.minTime} / ${stats.maxTime}`);
+            }
+        });
+
+        console.log('\n\n🌐 LLAMADAS A API:');
+        console.log(`  Total: ${summary.apiCalls.total}`);
+        console.log(`  Exitosas: ${summary.apiCalls.successful}`);
+        console.log(`  Caché: ${summary.apiCalls.cached}`);
+        console.log(`  Fallidas: ${summary.apiCalls.failed}`);
+        console.log(`  Duración promedio: ${summary.apiCalls.avgDuration}`);
+
+        console.log('\n\n❌ ERRORES DE RENDERIZADO:');
+        console.log(`  Total: ${summary.renderErrors.total}`);
+        if (summary.renderErrors.total > 0) {
+            Object.entries(summary.renderErrors.byType).forEach(([type, count]) => {
+                console.log(`    - ${type}: ${count}`);
+            });
+        }
+
+        if (summary.duplicateCalls.length > 0) {
+            console.log('\n\n⚠️  PETICIONES DUPLICADAS:');
+            summary.duplicateCalls.forEach(dup => {
+                console.log(`    - ${dup.key}: ${dup.count} llamadas`);
+            });
+        }
+
+        console.log('\n═══════════════════════════════════════════');
+    },
+
+    // Resetear métricas
+    reset() {
+        this.data = {
+            tabSwitches: [],
+            apiCalls: [],
+            renderErrors: [],
+            performance: {
+                bicis: [],
+                parkings: [],
+                paradas: [],
+                rutas: []
+            }
+        };
+        console.log('🔄 Métricas reseteadas');
+    },
+
+    // Utilidades privadas
+    _limitArray(arr) {
+        if (arr.length > this.config.maxStoredMetrics) {
+            arr.shift();
+        }
+    },
+
+    _calculateMedian(numbers) {
+        const sorted = [...numbers].sort((a, b) => a - b);
+        const middle = Math.floor(sorted.length / 2);
+
+        if (sorted.length % 2 === 0) {
+            return (sorted[middle - 1] + sorted[middle]) / 2;
+        }
+
+        return sorted[middle];
+    },
+
+    _groupBy(arr, key) {
+        return arr.reduce((acc, item) => {
+            const groupKey = item[key];
+            acc[groupKey] = (acc[groupKey] || 0) + 1;
+            return acc;
+        }, {});
+    }
+};
+
+// Exponer métricas globalmente para facilitar inspección en consola
+window.metrics = metricsSystem;
+
+// ============================================
 // ESTADO
 // ============================================
 let map;
@@ -314,6 +634,9 @@ function setupEventListeners() {
 async function loadBiciMAD() {
     console.log('Cargando BiciMAD...');
 
+    // Iniciar tracking de API
+    const apiTracking = metricsSystem.trackAPICall('BiciMAD', API_BICIMAD, 'GET');
+
     const container = document.getElementById('bicisContainer');
     if (container) {
         container.innerHTML = `
@@ -330,13 +653,22 @@ async function loadBiciMAD() {
         bicisData = data[0].bicis || [];
         console.log('BiciMAD cargado:', bicisData.length, 'estaciones');
 
+        // Validar datos antes de renderizar
+        metricsSystem.validateRenderedData(bicisData, 'id');
+
         renderBicisList();
         renderBicisMarkers();
+
+        // Finalizar tracking exitosamente
+        metricsSystem.endAPICall(apiTracking, true);
     } catch (error) {
         console.error('Error cargando BiciMAD:', error);
         if (container) {
             container.innerHTML = '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar BiciMAD</div>';
         }
+
+        // Registrar error en métricas
+        metricsSystem.endAPICall(apiTracking, false, error.message);
     }
 }
 
@@ -408,6 +740,9 @@ function renderBicisMarkers() {
 async function loadParkings() {
     console.log('Cargando parkings...');
 
+    // Iniciar tracking de API
+    const apiTracking = metricsSystem.trackAPICall('Parkings', API_PARKINGS, 'GET');
+
     const container = document.getElementById('parkingsContainer');
     if (container) {
         container.innerHTML = `
@@ -424,13 +759,22 @@ async function loadParkings() {
         parkingsData = data[0]?.data || [];
         console.log('Parkings cargados:', parkingsData.length, 'parkings');
 
+        // Validar datos antes de renderizar
+        metricsSystem.validateRenderedData(parkingsData, 'id');
+
         renderParkingsList();
         renderParkingsMarkers();
+
+        // Finalizar tracking exitosamente
+        metricsSystem.endAPICall(apiTracking, true);
     } catch (error) {
         console.error('Error cargando parkings:', error);
         if (container) {
             container.innerHTML = '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar parkings</div>';
         }
+
+        // Registrar error en métricas
+        metricsSystem.endAPICall(apiTracking, false, error.message);
     }
 }
 
@@ -701,35 +1045,57 @@ async function loadBusStop(stopId) {
     console.log('Cargando parada:', stopId);
     currentStopId = stopId;
     const container = document.getElementById('busesContainer');
-    
+
+    const url = API_BUSES(stopId);
+
     if (stopsData[stopId]) {
         console.log('Usando datos cacheados para stopId:', stopId);
+
+        // Tracking de caché hit
+        const apiTracking = metricsSystem.trackAPICall('BusStop', url, 'GET');
+        metricsSystem.endAPICall(apiTracking, true, null, true); // cached = true
+
         renderBusStop(stopsData[stopId]);
         return;
     }
 
+    // Iniciar tracking de API
+    const apiTracking = metricsSystem.trackAPICall('BusStop', url, 'GET');
+
     container.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando...</div>';
 
     try {
-        const url = API_BUSES(stopId);
         console.log('Llamando a:', url);
-        
+
         const response = await fetch(url);
         const data = await response.json();
         console.log('Datos recibidos:', data);
-        
+
         const busData = data[0];
 
         if (!busData.stop_info || !busData.stop_info.name) {
             container.innerHTML = '<div class="error"><i class="fas fa-times-circle"></i> Parada no encontrada</div>';
+            metricsSystem.endAPICall(apiTracking, false, 'Parada no encontrada');
             return;
         }
 
         stopsData[stopId] = busData;
+
+        // Validar arrivals (buses)
+        if (busData.arrivals && busData.arrivals.length > 0) {
+            metricsSystem.validateRenderedData(busData.arrivals, 'line');
+        }
+
         renderBusStop(busData);
+
+        // Finalizar tracking exitosamente
+        metricsSystem.endAPICall(apiTracking, true);
     } catch (error) {
         console.error('Error cargando parada:', error);
         container.innerHTML = '<div class="error"><i class="fas fa-exclamation-circle"></i> Error al cargar la parada</div>';
+
+        // Registrar error en métricas
+        metricsSystem.endAPICall(apiTracking, false, error.message);
     }
 }
 
@@ -813,95 +1179,107 @@ function getTextColor(hexColor) {
 // TABS
 // ============================================
 function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    // Iniciar tracking de rendimiento
+    const tracking = metricsSystem.startTabSwitch(tabName);
 
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(tabName).classList.add('active');
+    try {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    // Actualizar título y mostrar/ocultar secciones según el tab
-    const busSearchSection = document.getElementById('busSearchSection');
-    const sidebarTitle = document.getElementById('sidebarTitle');
-    const sidebarSubtitle = document.getElementById('sidebarSubtitle');
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(tabName).classList.add('active');
 
-    if (tabName === 'paradas') {
-        if (busSearchSection) busSearchSection.style.display = 'block';
-        if (sidebarTitle) sidebarTitle.textContent = '🚌 Buses';
-        if (sidebarSubtitle) sidebarSubtitle.textContent = 'EMT Madrid en tiempo real';
-        selectingWeather = false;
-    } else if (tabName === 'bicis') {
-        if (busSearchSection) busSearchSection.style.display = 'none';
-        if (sidebarTitle) sidebarTitle.textContent = '🚴 BiciMAD';
-        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Estaciones en tiempo real';
-        selectingWeather = false;
-    } else if (tabName === 'parkings') {
-        if (busSearchSection) busSearchSection.style.display = 'none';
-        if (sidebarTitle) sidebarTitle.textContent = '🅿️ Parkings';
-        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Disponibilidad en tiempo real';
-        selectingWeather = false;
-    } else if (tabName === 'rutas') {
-        if (busSearchSection) busSearchSection.style.display = 'none';
-        if (sidebarTitle) sidebarTitle.textContent = '🗺️ Rutas';
-        if (sidebarSubtitle) sidebarSubtitle.textContent = 'Calcula tu ruta óptima';
-        selectingWeather = false;
-    }
+        // Actualizar título y mostrar/ocultar secciones según el tab
+        const busSearchSection = document.getElementById('busSearchSection');
+        const sidebarTitle = document.getElementById('sidebarTitle');
+        const sidebarSubtitle = document.getElementById('sidebarSubtitle');
 
-    // Cargar BiciMAD cuando se selecciona la pestaña
-    if (tabName === 'bicis') {
-        if (bicisData.length === 0) {
-            loadBiciMAD();
-        } else {
-            // Si ya están cargados, re-renderizar para asegurar que se muestran
-            renderBicisList();
-            renderBicisMarkers();
+        if (tabName === 'paradas') {
+            if (busSearchSection) busSearchSection.style.display = 'block';
+            if (sidebarTitle) sidebarTitle.textContent = '🚌 Buses';
+            if (sidebarSubtitle) sidebarSubtitle.textContent = 'EMT Madrid en tiempo real';
+            selectingWeather = false;
+        } else if (tabName === 'bicis') {
+            if (busSearchSection) busSearchSection.style.display = 'none';
+            if (sidebarTitle) sidebarTitle.textContent = '🚴 BiciMAD';
+            if (sidebarSubtitle) sidebarSubtitle.textContent = 'Estaciones en tiempo real';
+            selectingWeather = false;
+        } else if (tabName === 'parkings') {
+            if (busSearchSection) busSearchSection.style.display = 'none';
+            if (sidebarTitle) sidebarTitle.textContent = '🅿️ Parkings';
+            if (sidebarSubtitle) sidebarSubtitle.textContent = 'Disponibilidad en tiempo real';
+            selectingWeather = false;
+        } else if (tabName === 'rutas') {
+            if (busSearchSection) busSearchSection.style.display = 'none';
+            if (sidebarTitle) sidebarTitle.textContent = '🗺️ Rutas';
+            if (sidebarSubtitle) sidebarSubtitle.textContent = 'Calcula tu ruta óptima';
+            selectingWeather = false;
         }
-    }
 
-    // Cargar Parkings cuando se selecciona la pestaña
-    if (tabName === 'parkings') {
-        if (parkingsData.length === 0) {
-            loadParkings();
-        } else {
-            // Si ya están cargados, re-renderizar para asegurar que se muestran
-            renderParkingsList();
-            renderParkingsMarkers();
+        // Cargar BiciMAD cuando se selecciona la pestaña
+        if (tabName === 'bicis') {
+            if (bicisData.length === 0) {
+                loadBiciMAD();
+            } else {
+                // Si ya están cargados, re-renderizar para asegurar que se muestran
+                renderBicisList();
+                renderBicisMarkers();
+            }
         }
-    }
 
-    // Limpiar marcadores al cambiar de pestaña
-    if (tabName === 'paradas') {
-        clearBicisMarkers();
-        clearParkingsMarkers();
-        routeLayer.clearLayers();
-    }
-
-    if (tabName === 'bicis') {
-        clearParkingsMarkers();
-        nearbyMarkersLayer.clearLayers();
-        routeLayer.clearLayers();
-        // Mostrar marcadores de bicis si ya están cargados
-        if (bicisData.length > 0) {
-            showBicisMarkers();
+        // Cargar Parkings cuando se selecciona la pestaña
+        if (tabName === 'parkings') {
+            if (parkingsData.length === 0) {
+                loadParkings();
+            } else {
+                // Si ya están cargados, re-renderizar para asegurar que se muestran
+                renderParkingsList();
+                renderParkingsMarkers();
+            }
         }
-    }
 
-    if (tabName === 'parkings') {
-        clearBicisMarkers();
-        nearbyMarkersLayer.clearLayers();
-        routeLayer.clearLayers();
-        // Mostrar marcadores de parkings si ya están cargados
-        if (parkingsData.length > 0) {
-            showParkingsMarkers();
+        // Limpiar marcadores al cambiar de pestaña
+        if (tabName === 'paradas') {
+            clearBicisMarkers();
+            clearParkingsMarkers();
+            routeLayer.clearLayers();
         }
-    }
 
-    if (tabName === 'rutas') {
-        clearBicisMarkers();
-        clearParkingsMarkers();
-        nearbyMarkersLayer.clearLayers();
-        // No limpiar routeLayer aquí para mantener las rutas visibles
-    }
+        if (tabName === 'bicis') {
+            clearParkingsMarkers();
+            nearbyMarkersLayer.clearLayers();
+            routeLayer.clearLayers();
+            // Mostrar marcadores de bicis si ya están cargados
+            if (bicisData.length > 0) {
+                showBicisMarkers();
+            }
+        }
 
+        if (tabName === 'parkings') {
+            clearBicisMarkers();
+            nearbyMarkersLayer.clearLayers();
+            routeLayer.clearLayers();
+            // Mostrar marcadores de parkings si ya están cargados
+            if (parkingsData.length > 0) {
+                showParkingsMarkers();
+            }
+        }
+
+        if (tabName === 'rutas') {
+            clearBicisMarkers();
+            clearParkingsMarkers();
+            nearbyMarkersLayer.clearLayers();
+            // No limpiar routeLayer aquí para mantener las rutas visibles
+        }
+
+        // Finalizar tracking exitosamente
+        metricsSystem.endTabSwitch(tracking, true);
+
+    } catch (error) {
+        // Registrar error
+        metricsSystem.endTabSwitch(tracking, false, error.message);
+        console.error('Error al cambiar de pestaña:', error);
+    }
 }
 
 // ============================================
@@ -1528,3 +1906,248 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
+// ============================================
+// PANEL DE MÉTRICAS UI
+// ============================================
+function initMetricsPanel() {
+    const toggleBtn = document.getElementById('toggle-metrics');
+    const metricsPanel = document.getElementById('metricsPanel');
+    const metricsPanelToggle = document.getElementById('metricsPanelToggle');
+    const exportBtn = document.getElementById('exportMetricsBtn');
+    const resetBtn = document.getElementById('resetMetricsBtn');
+
+    let isPanelOpen = false;
+
+    const toggleMetricsPanel = () => {
+        isPanelOpen = !isPanelOpen;
+        if (isPanelOpen) {
+            metricsPanel.style.left = '0';
+            metricsPanelToggle.textContent = '▶';
+            updateMetricsDisplay();
+        } else {
+            metricsPanel.style.left = '-450px';
+            metricsPanelToggle.textContent = '◀';
+        }
+    };
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleMetricsPanel);
+    }
+
+    if (metricsPanelToggle) {
+        metricsPanelToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMetricsPanel();
+        });
+    }
+
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            metricsSystem.exportMetrics();
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (confirm('¿Estás seguro de que quieres resetear todas las métricas?')) {
+                metricsSystem.reset();
+                updateMetricsDisplay();
+            }
+        });
+    }
+
+    // Auto-actualizar métricas cada 2 segundos si el panel está abierto
+    setInterval(() => {
+        if (isPanelOpen) {
+            updateMetricsDisplay();
+        }
+    }, 2000);
+}
+
+function updateMetricsDisplay() {
+    const summary = metricsSystem.getSummary();
+
+    // Actualizar resumen rápido
+    updateQuickSummary(summary);
+
+    // Actualizar métricas de pestañas
+    updateTabMetrics(summary);
+
+    // Actualizar métricas de API
+    updateAPIMetrics(summary);
+
+    // Actualizar errores de renderizado
+    updateRenderErrorMetrics(summary);
+
+    // Actualizar peticiones duplicadas
+    updateDuplicateCallsMetrics(summary);
+
+    // Actualizar timestamp
+    const lastUpdateEl = document.getElementById('metricsLastUpdate');
+    if (lastUpdateEl) {
+        lastUpdateEl.textContent = `Última actualización: ${new Date().toLocaleTimeString()}`;
+    }
+}
+
+function updateQuickSummary(summary) {
+    const container = document.getElementById('metricsQuickSummary');
+    if (!container) return;
+
+    const avgTabTime = summary.tabSwitches.total > 0
+        ? (metricsSystem.data.tabSwitches.reduce((sum, t) => sum + t.duration, 0) / summary.tabSwitches.total).toFixed(0)
+        : 0;
+
+    container.innerHTML = `
+        <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: var(--primary);">${summary.tabSwitches.total}</div>
+            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Cambios de Pestaña</div>
+        </div>
+        <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #0072ce;">${avgTabTime}ms</div>
+            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Tiempo Promedio</div>
+        </div>
+        <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: #00d084;">${summary.apiCalls.total}</div>
+            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Llamadas a API</div>
+        </div>
+        <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: ${summary.renderErrors.total > 0 ? '#ff6b6b' : '#00d084'};">${summary.renderErrors.total}</div>
+            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Errores</div>
+        </div>
+    `;
+}
+
+function updateTabMetrics(summary) {
+    const container = document.getElementById('tabMetrics');
+    if (!container) return;
+
+    const tabs = ['bicis', 'parkings', 'paradas', 'rutas'];
+    let html = '';
+
+    tabs.forEach(tab => {
+        const stats = summary.tabSwitches.byTab[tab];
+        if (stats) {
+            const avgTime = parseFloat(stats.avgTime);
+            const color = avgTime > 2000 ? '#ff6b6b' : avgTime > 1000 ? '#ffa500' : '#00d084';
+
+            html += `
+                <div style="margin-bottom: 12px; padding: 10px; background: var(--bg-dark); border-radius: 6px; border-left: 3px solid ${color};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">${tab.toUpperCase()}</span>
+                        <span style="font-size: 12px; font-weight: 700; color: ${color};">${stats.avgTime}</span>
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary); display: flex; justify-content: space-between;">
+                        <span>Cambios: ${stats.count}</span>
+                        <span>Éxito: ${stats.successRate}</span>
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">
+                        <span>Min: ${stats.minTime} | Max: ${stats.maxTime}</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+
+    container.innerHTML = html || '<p style="font-size: 11px; color: var(--text-secondary); text-align: center;">No hay datos disponibles</p>';
+}
+
+function updateAPIMetrics(summary) {
+    const container = document.getElementById('apiMetrics');
+    if (!container) return;
+
+    const cachedPercentage = summary.apiCalls.total > 0
+        ? ((summary.apiCalls.cached / summary.apiCalls.total) * 100).toFixed(1)
+        : 0;
+
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
+            <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: #00d084;">${summary.apiCalls.successful}</div>
+                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Exitosas</div>
+            </div>
+            <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: #ff6b6b;">${summary.apiCalls.failed}</div>
+                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Fallidas</div>
+            </div>
+        </div>
+        <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; color: var(--text-secondary);">Desde caché:</span>
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary);">${summary.apiCalls.cached} (${cachedPercentage}%)</span>
+            </div>
+        </div>
+        <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; color: var(--text-secondary);">Duración promedio:</span>
+                <span style="font-size: 12px; font-weight: 700; color: #0072ce;">${summary.apiCalls.avgDuration}</span>
+            </div>
+        </div>
+    `;
+}
+
+function updateRenderErrorMetrics(summary) {
+    const container = document.getElementById('renderErrorMetrics');
+    if (!container) return;
+
+    if (summary.renderErrors.total === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Sin errores de renderizado</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    Object.entries(summary.renderErrors.byType).forEach(([type, count]) => {
+        html += `
+            <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: var(--text-primary); font-weight: 600;">${type}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #ff6b6b;">${count}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function updateDuplicateCallsMetrics(summary) {
+    const section = document.getElementById('duplicateCallsSection');
+    const container = document.getElementById('duplicateCallsMetrics');
+    if (!section || !container) return;
+
+    if (summary.duplicateCalls.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+
+    let html = '';
+    summary.duplicateCalls.forEach(dup => {
+        html += `
+            <div style="background: var(--bg-dark); padding: 10px; border-radius: 6px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 10px; color: var(--text-primary); word-break: break-all; flex: 1;">${dup.key}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #ffa500; margin-left: 10px;">${dup.count}x</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Inicializar panel de métricas cuando cargue el DOM
+document.addEventListener('DOMContentLoaded', () => {
+    initMetricsPanel();
+    console.log('📊 Sistema de métricas inicializado. Usa window.metrics para acceder a las métricas en consola.');
+    console.log('Comandos disponibles:');
+    console.log('  - metrics.printSummary() - Ver resumen en consola');
+    console.log('  - metrics.exportMetrics() - Exportar a JSON');
+    console.log('  - metrics.reset() - Resetear métricas');
+});
