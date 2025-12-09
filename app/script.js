@@ -31,7 +31,7 @@ const metricsSystem = {
             paradas: [],
             rutas: []
         }
-    },
+    }, 
 
     // Configuración
     config: {
